@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.env
+venv/
+.venv/
+data/*.db
+data/*.sqlite3
+data/cache/
+charts/*.png
+temp/
