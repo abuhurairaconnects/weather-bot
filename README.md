@@ -1,5 +1,7 @@
 # 🌦️ Ultimate Telegram Weather Assistant Bot
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/abuhurairaconnects/weather-bot)
+
 একটি পূর্ণাঙ্গ, আধুনিক ও অল-ইন-ওয়ান **Telegram Weather Assistant Bot**। এটি ওপেন-মেটিও (Open-Meteo) ফ্রি API ব্যবহার করে কোনো থার্ড পার্টি পেইড কি (API Key) ছাড়াই সারাবিশ্বের এবং বিশেষ করে বাংলাদেশের প্রতিটি অঞ্চলের আবহাওয়ার বিস্তারিত তথ্য, নির্ভুল পূর্বাভাস, অ্যানালিটিক্স গ্রাফ এবং স্মার্ট পরামর্শ প্রদান করে।
 
 ---
