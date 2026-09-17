@@ -11,6 +11,8 @@ from services.weather_api import search_city, get_weather_data, format_temp
 from services.recommendations import generate_recommendations, format_recommendations_message
 from handlers.weather_handler import format_current_weather_card, build_weather_buttons
 from handlers.forecast_handler import format_hourly_message, format_daily_forecast_message, format_air_quality_message
+from handlers.common import get_main_keyboard
+from handlers.division_handler import show_divisions_menu
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
 
@@ -59,61 +61,30 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Smart signature greeting: only non-empty on first message or after 20+ minutes of idle time
     signature_greeting = get_smart_signature_greeting(user.id, lang)
 
-    # 1. Handle Main Keyboard Button Clicks
-    if text in ["🌦️ লাইভ আবহাওয়া", "🌦️ Live Weather", "🌦️ ঢাকা আবহাওয়া", "🌦️ Dhaka Weather"]:
+    # 1. Handle Main Streamlined Keyboard Button Clicks
+    # A. Division button (বিভাগ নির্বাচন)
+    if text in ["🏢 বিভাগ", "বিভাগ", "🏢 Divisions", "Divisions"]:
+        await show_divisions_menu(update, context)
+        return
+
+    # B. 24-Hour Forecast (২৪ ঘণ্টার পূর্বাভাস)
+    if text in ["📆 ২৪ ঘণ্টার পূর্বাভাস", "📆 ২৪ ঘণ্টা পূর্বাভাস", "২৪ ঘণ্টার পূর্বাভাস", "২৪ ঘণ্টা পূর্বাভাস", "📆 24-Hour Forecast", "24-Hour Forecast", "24h"]:
         cities = await search_city(default_city)
         if cities:
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                card = format_current_weather_card(w, c["display_name"], lang, unit)
-                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
-                msg = signature_greeting + card if signature_greeting else card
-                await safe_reply(update, msg, reply_markup=markup)
+                await safe_reply(update, format_hourly_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
         return
 
-    if text in ["📆 ২৪ ঘণ্টা পূর্বাভাস", "📆 ২৪ ঘণ্টার পূর্বাভাস", "📆 24h Hourly Forecast", "📆 24h Forecast"]:
+    # C. 7-Day Forecast (৭ দিনের পূর্বাভাস)
+    if text in ["📅 ৭ দিনের পূর্বাভাস", "৭ দিনের পূর্বাভাস", "📅 7-Day Forecast", "7-Day Forecast", "7d"]:
         cities = await search_city(default_city)
         if cities:
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                await safe_reply(update, format_hourly_message(w, c["display_name"], lang, unit))
-        return
-
-    if text in ["📅 ৭ দিনের পূর্বাভাস", "📅 7-Day Forecast"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit))
-        return
-
-    if text in ["🧠 স্মার্ট পরামর্শ", "🧠 Smart Advice"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                rec = generate_recommendations(w, lang)
-                await safe_reply(update, format_recommendations_message(rec, c["display_name"], lang))
-        return
-
-    # Random Upazila handler (picks any random upazila in Bangladesh)
-    if text in ["🎲 র‍্যান্ডম উপজেলা", "🎲 Random Upazila", "র‍্যান্ডম উপজেলা", "র্যান্ডম উপজেলা", "random"]:
-        import random
-        from services.bd_geocoder import _BD_LOCATIONS, find_bd_location
-        upazilas = [l for l in _BD_LOCATIONS if l.get("type") == "upazila"]
-        if upazilas:
-            chosen = random.choice(upazilas)
-            c = find_bd_location(chosen["name_en"]) or chosen
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                card = format_current_weather_card(w, c["display_name"], lang, unit)
-                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
-                msg = signature_greeting + card if signature_greeting else card
-                await safe_reply(update, msg, reply_markup=markup)
+                await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
         return
 
     # Direct Bangladesh Location Check (instant 0ms response for any of 64 districts & 495+ upazilas)

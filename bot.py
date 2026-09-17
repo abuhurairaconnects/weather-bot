@@ -28,6 +28,7 @@ from database.db import init_db
 from handlers.common import start_command, help_command, about_command
 from handlers.weather_handler import weather_command, random_command, location_handler, weather_callback_dispatcher
 from handlers.forecast_handler import forecast_command, hourly_command, advice_command
+from handlers.division_handler import show_divisions_menu, division_callback_dispatcher
 from handlers.conversation import handle_text_message
 
 import os
@@ -42,7 +43,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         from config import GEMINI_API_KEY
         gemini_status = "Active ✅" if bool(GEMINI_API_KEY) else "Not Configured ⚠️"
-        msg = f"🌦️ Telegram Weather Bot is Online & Active 24/7!\n🤖 Gemini AI: {gemini_status}\n📦 Version: 3.2.0-core-upazila-verified\n"
+        msg = f"🌦️ Telegram Weather Bot is Online & Active 24/7!\n🤖 Gemini AI: {gemini_status}\n📦 Version: 3.3.0-division-drilldown\n"
         self.wfile.write(msg.encode("utf-8"))
 
     def log_message(self, format, *args):
@@ -73,11 +74,10 @@ async def post_init(application):
     """Set up streamlined bot commands menu in Telegram."""
     commands = [
         BotCommand("start", "বট শুরু করুন / Start the bot"),
-        BotCommand("weather", "রিয়েল-টাইম আবহাওয়া / Real-time weather"),
-        BotCommand("random", "র‍্যান্ডম উপজেলা / Random upazila weather"),
+        BotCommand("division", "বিভাগ নির্বাচন / Browse by Division"),
         BotCommand("hourly", "২৪ ঘণ্টার পূর্বাভাস / 24-hour forecast"),
         BotCommand("forecast", "৭ দিনের পূর্বাভাস / 7-day forecast"),
-        BotCommand("advice", "স্মার্ট পরামর্শ / Smart lifestyle advice"),
+        BotCommand("weather", "রিয়েল-টাইম আবহাওয়া / Real-time weather"),
         BotCommand("help", "কমান্ডের নির্দেশিকা / Help & commands"),
         BotCommand("about", "বট সম্পর্কে / About the bot")
     ]
@@ -118,14 +118,16 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("about", about_command))
 
-    # 2. Weather & Forecast Commands
+    # 2. Division & Weather Commands
+    application.add_handler(CommandHandler("division", show_divisions_menu))
     application.add_handler(CommandHandler("weather", weather_command))
-    application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("forecast", forecast_command))
     application.add_handler(CommandHandler("hourly", hourly_command))
+    application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("advice", advice_command))
 
-    # 3. Interactive Button Callbacks (ref, hr, fc, adv)
+    # 3. Hierarchical Division & Weather Button Callbacks
+    application.add_handler(CallbackQueryHandler(division_callback_dispatcher, pattern=r"^(div|dist|dist_p|upz|back):"))
     application.add_handler(CallbackQueryHandler(weather_callback_dispatcher, pattern=r"^(ref|hr|fc|adv):"))
 
     # 4. Native Location Attachment

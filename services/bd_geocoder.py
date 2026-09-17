@@ -14,6 +14,41 @@ _EXACT_INDEX: Dict[str, Dict[str, Any]] = {}
 _NORMALIZED_INDEX: Dict[str, Dict[str, Any]] = {}
 _ALL_KEYWORDS: Set[str] = set()
 
+_DIVISIONS_LIST: List[Dict[str, str]] = [
+    {"id": "Dhaka", "en": "Dhaka", "bn": "ঢাকা"},
+    {"id": "Chattogram", "en": "Chattogram", "bn": "চট্টগ্রাম"},
+    {"id": "Rajshahi", "en": "Rajshahi", "bn": "রাজশাহী"},
+    {"id": "Khulna", "en": "Khulna", "bn": "খুলনা"},
+    {"id": "Barishal", "en": "Barishal", "bn": "বরিশাল"},
+    {"id": "Sylhet", "en": "Sylhet", "bn": "সিলেট"},
+    {"id": "Rangpur", "en": "Rangpur", "bn": "রংপুর"},
+    {"id": "Mymensingh", "en": "Mymensingh", "bn": "ময়মনসিংহ"},
+]
+
+DISTRICT_NAME_CANONICAL: Dict[str, str] = {
+    "chittagong": "Chattogram",
+    "chattogram": "Chattogram",
+    "bogra": "Bogura",
+    "bogura": "Bogura",
+    "jessore": "Jashore",
+    "jashore": "Jashore",
+    "barisal": "Barishal",
+    "barishal": "Barishal",
+    "comilla": "Cumilla",
+    "cumilla": "Cumilla",
+    "khagrachari": "Khagrachhari",
+    "khagrachhari": "Khagrachhari",
+    "sirajganj": "Sirajgonj",
+    "sirajgonj": "Sirajgonj",
+    "moulvibazar": "Maulvibazar",
+    "maulvibazar": "Maulvibazar",
+    "coxsbazar": "Cox's Bazar",
+    "cox's bazar": "Cox's Bazar",
+}
+
+_DISTRICTS_BY_DIV: Dict[str, List[Dict[str, str]]] = {}
+_UPAZILAS_BY_DIST: Dict[str, List[Dict[str, Any]]] = {}
+
 COMMON_BD_SPELLING_VARIANTS = {
     # English variations
     "sirajganj": "sirajgonj",
@@ -148,8 +183,13 @@ def normalize_key(text: str) -> str:
 def _load_locations():
     """Load and index all Bangladesh locations into memory."""
     global _BD_LOCATIONS, _EXACT_INDEX, _NORMALIZED_INDEX, _ALL_KEYWORDS
+    global _DISTRICTS_BY_DIV, _UPAZILAS_BY_DIST
     if _BD_LOCATIONS:
         return  # Already loaded
+
+    _DISTRICTS_BY_DIV = {d["en"]: [] for d in _DIVISIONS_LIST}
+    _UPAZILAS_BY_DIST = {}
+    seen_districts = set()
 
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     json_path = os.path.join(base_dir, "data", "bd_locations.json")
@@ -169,11 +209,35 @@ def _load_locations():
         dist_en = loc.get("district_en", "").strip()
         dist_bn = normalize_bn_unicode(loc.get("district_bn", "").strip())
         is_district = loc.get("type") == "district"
+        div_en = loc.get("division_en", "").strip()
+        canon_dist = DISTRICT_NAME_CANONICAL.get(dist_en.lower(), dist_en)
 
         if is_district:
             display_name = f"{name_bn} ({name_en}), {loc.get('division_bn', '')} বিভাগ"
+            if canon_dist not in seen_districts and div_en in _DISTRICTS_BY_DIV:
+                seen_districts.add(canon_dist)
+                _DISTRICTS_BY_DIV[div_en].append({
+                    "id": canon_dist,
+                    "name_en": canon_dist,
+                    "name_bn": name_bn,
+                    "division_en": div_en,
+                    "division_bn": loc.get("division_bn", "")
+                })
         else:
             display_name = f"{name_bn} ({name_en}), {dist_bn}"
+            if canon_dist:
+                if canon_dist not in _UPAZILAS_BY_DIST:
+                    _UPAZILAS_BY_DIST[canon_dist] = []
+                _UPAZILAS_BY_DIST[canon_dist].append({
+                    "name_en": name_en,
+                    "name_bn": name_bn,
+                    "district_en": canon_dist,
+                    "district_bn": dist_bn,
+                    "division_en": div_en,
+                    "division_bn": loc.get("division_bn", ""),
+                    "lat": float(loc["lat"]),
+                    "lon": float(loc["lon"])
+                })
 
         standard_entry = {
             "name": name_en,
@@ -213,6 +277,12 @@ def _load_locations():
         if name_bn:
             _ALL_KEYWORDS.add(name_bn)
 
+    # Sort districts and upazilas alphabetically by Bengali name
+    for d_en in _DISTRICTS_BY_DIV:
+        _DISTRICTS_BY_DIV[d_en].sort(key=lambda x: x["name_bn"])
+    for dt_en in _UPAZILAS_BY_DIST:
+        _UPAZILAS_BY_DIST[dt_en].sort(key=lambda x: x["name_bn"])
+
     # Pre-index known aliases
     for alias, target in COMMON_BD_SPELLING_VARIANTS.items():
         alias_norm = normalize_key(alias)
@@ -227,6 +297,27 @@ def _load_locations():
 
 # Initial load on import
 _load_locations()
+
+def get_all_divisions() -> List[Dict[str, str]]:
+    """Return list of all 8 administrative divisions of Bangladesh."""
+    return _DIVISIONS_LIST
+
+def get_districts_by_division(division_en: str) -> List[Dict[str, str]]:
+    """Return all districts belonging to a specific division."""
+    _load_locations()
+    for d, dist_list in _DISTRICTS_BY_DIV.items():
+        if d.lower() == division_en.lower():
+            return dist_list
+    return []
+
+def get_upazilas_by_district(district_en: str) -> List[Dict[str, Any]]:
+    """Return all upazilas belonging to a specific district."""
+    _load_locations()
+    canon = DISTRICT_NAME_CANONICAL.get(district_en.lower(), district_en)
+    for d, upz_list in _UPAZILAS_BY_DIST.items():
+        if d.lower() == canon.lower():
+            return upz_list
+    return []
 
 def find_bd_location(query: str) -> Optional[Dict[str, Any]]:
     """
