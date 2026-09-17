@@ -24,8 +24,7 @@ SYSTEM_INSTRUCTION = (
     "\nGuidelines:"
     "\n1. If the user asks in Bengali (বাংলা), respond in fluent, polished, natural, and polite Bengali."
     "\n2. If the user asks in English, respond in clear, professional English."
-    "\n3. Keep your answers well-structured, using markdown bolding, clear bullet points, and easy-to-read spacing on mobile screens."
-    "\n4. If the user asks for real-time weather of any specific place/area, give helpful insights and inform them that typing the area name directly (e.g. 'মিরপুর' or 'Kushtia') brings up a comprehensive live weather card with graphical charts."
+    "\n3. Keep your answers well-structured, informative, polite, using markdown bolding, clear bullet points, and easy-to-read spacing on mobile screens."
 )
 
 async def ask_gemini(user_id: int, user_query: str, lang: str = "bn") -> str:

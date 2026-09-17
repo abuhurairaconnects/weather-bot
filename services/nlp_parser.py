@@ -171,16 +171,7 @@ def extract_city_from_text(text: str) -> Optional[str]:
     """Scan text for known city mentions with Bangladesh geocoder, multi-word priority, suffix normalization, and candidate extraction."""
     lower = text.lower().strip()
 
-    # Conversational non-weather guard
-    conversational_triggers = [
-        "কেমন আছো", "কেমন আছেন", "কি খবর", "কী খবর", "হাই", "হ্যালো", "ধন্যবাদ",
-        "how are you", "hello", "hi", "hey", "thanks", "thank you", "who are you",
-        "কৌতুক", "গল্প", "কবিতা", "গান", "নাম কী", "কে তুমি"
-    ]
-    if any(c in lower for c in conversational_triggers):
-        return None
-
-    # 1. Primary check: Full phrase check against verified BD Geocoder
+    # 1. Primary check: Full phrase check against verified BD Geocoder (instant 0ms)
     try:
         from services.bd_geocoder import find_bd_location
         bd_match = find_bd_location(text)
@@ -188,6 +179,22 @@ def extract_city_from_text(text: str) -> Optional[str]:
             return bd_match["name"]
     except Exception:
         pass
+
+    # Conversational non-weather guard (using whole word/phrase matching)
+    conversational_phrases = [
+        "কেমন আছো", "কেমন আছেন", "কি খবর", "কী খবর", "how are you",
+        "thank you", "who are you", "নাম কী", "কে তুমি", "তুমি কে"
+    ]
+    if any(p in lower for p in conversational_phrases):
+        return None
+
+    words_set = set(re.findall(r"[\u0980-\u09FFa-zA-Z]+", lower))
+    conversational_words = {
+        "হাই", "হ্যালো", "ধন্যবাদ", "hello", "hi", "hey", "thanks",
+        "কৌতুক", "গল্প", "কবিতা", "গান"
+    }
+    if words_set and words_set.issubset(conversational_words):
+        return None
 
     # 2. Direct alias match
     if lower in COMMON_CITY_ALIASES:

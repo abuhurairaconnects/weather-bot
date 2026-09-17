@@ -94,6 +94,17 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 )
         return
 
+    # Direct Bangladesh Location Check (instant 0ms response for any of 64 districts & 495+ upazilas)
+    from services.bd_geocoder import find_bd_location
+    bd_loc = find_bd_location(text)
+    if bd_loc:
+        w_data = await get_weather_data(bd_loc["lat"], bd_loc["lon"], unit)
+        if w_data:
+            card = format_current_weather_card(w_data, bd_loc["display_name"], lang, unit)
+            markup = build_weather_buttons(bd_loc["lat"], bd_loc["lon"], bd_loc["name"], lang)
+            await safe_reply(update, card, reply_markup=markup)
+            return
+
     # 2. Run NLP Intent Classification
     intent_data = classify_intent(text)
     intent = intent_data["intent"]
@@ -245,6 +256,11 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     ai_response = await ask_gemini(user.id, text, lang)
     
+    # Always guarantee Abu Huraira AI signature greeting is present at the top
+    greeting_marker = "আবু হুরাইরার" if lang == "bn" else "Abu Huraira"
+    if greeting_marker not in ai_response:
+        ai_response = signature_greeting + ai_response
+
     # Telegram message limit is 4096 characters; chunk cleanly if needed
     if len(ai_response) > 4000:
         for i in range(0, len(ai_response), 4000):
