@@ -92,6 +92,18 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
         return
 
+    # D. Subscription / Unsubscription NLP shortcuts
+    lower_text = text.lower()
+    if any(k in lower_text for k in ["আনসাবস্ক্রাইব", "unsubscribe", "অ্যালার্ট বন্ধ", "নোটিফিকেশন বন্ধ", "বুলেটিন বন্ধ"]):
+        from handlers.user_handlers import unsubscribe_command
+        await unsubscribe_command(update, context)
+        return
+
+    if any(k in lower_text for k in ["সাবস্ক্রাইব", "subscribe", "সকাল সাতটা", "সন্ধ্যা সাতটা", "অটোমেটিক আপডেট", "দৈনিক বুলেটিন", "অ্যালার্ট চালু"]):
+        from handlers.user_handlers import subscribe_command
+        await subscribe_command(update, context)
+        return
+
     # Direct Bangladesh Location Check (instant 0ms response for any of 64 districts & 495+ upazilas)
     from services.bd_geocoder import find_bd_location
     bd_loc = find_bd_location(text)

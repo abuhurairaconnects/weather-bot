@@ -5,7 +5,7 @@ Monitors rain, severe weather conditions, and triggers daily morning/evening bri
 from datetime import datetime, timezone, timedelta
 from typing import Dict
 from telegram.ext import ContextTypes
-from database.db import get_all_subscribers_for_alerts, update_user_setting
+from database.db import get_all_subscribers_for_alerts, update_user_setting, update_alert_settings, get_alert_settings
 from services.weather_api import get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_aqi_category
 
@@ -130,13 +130,156 @@ async def check_rain_and_severe_alerts(context: ContextTypes.DEFAULT_TYPE):
                         await update_user_setting(user_id, "is_blocked", 1)
                     print(f"Failed to send severe alert to {user_id}: {e}")
 
+def build_morning_report_message(w_data: dict, city: str, lang: str = "bn", unit: str = "C") -> str:
+    """Format rich 07:00 AM morning bulletin."""
+    cur = w_data.get("current", {})
+    max_t = format_temp(cur.get("today_max_temp"), unit)
+    min_t = format_temp(cur.get("today_min_temp"), unit)
+    rain_p = cur.get("today_rain_chance_max", 0)
+    wind_s = cur.get("wind_speed", 0.0)
+    uv = cur.get("today_max_uv", 0.0)
+    aqi_v = cur.get("aqi", {}).get("us_aqi", 0)
+    aqi_cat, aqi_emo, _ = get_aqi_category(aqi_v, lang)
+    wmo_code = cur.get("wmo_code", 0)
+    cond_text, cond_emoji = get_wmo_description(wmo_code, lang)
+
+    # Weather safety recommendation
+    advice_bn = ""
+    advice_en = ""
+    if rain_p >= 50:
+        advice_bn = f"\n☂️ **জরুরি সতর্কতা:** আজ বৃষ্টির প্রবল সম্ভাবনা রয়েছে ({rain_p}%), বাইরে বের হলে ছাতা সঙ্গে রাখুন!"
+        advice_en = f"\n☂️ **Rain Advisory:** High chance of rain today ({rain_p}%), keep an umbrella handy!"
+    elif cur.get("today_max_temp", 25) >= 36:
+        advice_bn = "\n☀️ **তাপদাহ সতর্কতা:** আজ তীব্র গরম থাকবে, প্রচুর পানি পান করুন ও সরাসরি রোদ এড়িয়ে চলুন।"
+        advice_en = "\n☀️ **Heat Advisory:** Hot day ahead, stay well-hydrated and avoid direct sunlight."
+    elif wind_s >= 35:
+        advice_bn = f"\n💨 **বাতাস সতর্কতা:** আজ ঝড়ো হাওয়া বইতে পারে (গতিবেগ {wind_s:.1f} কিমি/ঘণ্টা)।"
+        advice_en = f"\n💨 **Wind Advisory:** Windy day ahead with gusts up to {wind_s:.1f} km/h."
+
+    if lang == "bn":
+        return (
+            f"🌅 **সুপ্রভাত! সকালের আবহাওয়া বুলেটিন — {city}**\n"
+            f"⏰ *সকাল ০৭:০০ টার নিয়মিত বুলেটিন*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🌤️ **আজকের আকাশ:** {cond_emoji} {cond_text}\n"
+            f"🌡️ **তাপমাত্রা পরিসীমা:** {min_t} থেকে {max_t}\n"
+            f"🌧️ **বৃষ্টির সম্ভাবনা:** {rain_p}%\n"
+            f"💨 **বাতাসের গতিবেগ:** {wind_s:.1f} কিমি/ঘণ্টা\n"
+            f"☀️ **ইউভি সূচক (UV):** {uv:.1f}\n"
+            f"🌫️ **বায়ুমান (AQI):** {aqi_v} ({aqi_cat} {aqi_emo})"
+            f"{advice_bn}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"✨ *আপনার সারাদিনটি শুভ, সুন্দর ও নিরাপদ কাটুক!*"
+        )
+    else:
+        return (
+            f"🌅 **Good Morning! Morning Weather Bulletin — {city}**\n"
+            f"⏰ *Regular 07:00 AM Bulletin*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🌤️ **Sky Condition:** {cond_emoji} {cond_text}\n"
+            f"🌡️ **Today's Range:** {min_t} to {max_t}\n"
+            f"🌧️ **Rain Chance:** {rain_p}%\n"
+            f"💨 **Wind Speed:** {wind_s:.1f} km/h\n"
+            f"☀️ **UV Index:** {uv:.1f}\n"
+            f"🌫️ **Air Quality (AQI):** {aqi_v} ({aqi_cat} {aqi_emo})"
+            f"{advice_en}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"✨ *Have a safe and productive day!*"
+        )
+
+def build_evening_report_message(w_data: dict, city: str, lang: str = "bn", unit: str = "C") -> str:
+    """Format rich 07:00 PM evening bulletin with tomorrow's preview."""
+    cur = w_data.get("current", {})
+    cur_t = format_temp(cur.get("temp"), unit)
+    feels_t = format_temp(cur.get("feels_like"), unit)
+    cond_t, cond_e = get_wmo_description(cur.get("wmo_code", 0), lang)
+    humidity = cur.get("humidity", 0)
+    moon = cur.get("moon", {})
+    moon_e = moon.get("emoji", "🌕")
+    moon_t = moon.get("name_bn" if lang == "bn" else "name_en", "Moon")
+
+    # Tomorrow preview from daily forecast
+    daily = w_data.get("daily", {})
+    times = daily.get("time", [])
+    tomorrow_sec = ""
+    if len(times) > 1:
+        tom_max = format_temp(daily.get("temperature_2m_max", [0, 0])[1], unit)
+        tom_min = format_temp(daily.get("temperature_2m_min", [0, 0])[1], unit)
+        tom_rain = daily.get("precipitation_probability_max", [0, 0])[1]
+        tom_code = daily.get("weather_code", [0, 0])[1]
+        tom_desc, tom_emo = get_wmo_description(tom_code, lang)
+        if lang == "bn":
+            tomorrow_sec = (
+                f"\n📅 **আগামীকালের পূর্বাভাস একনজরে:**\n"
+                f"• আকাশ: {tom_emo} {tom_desc}\n"
+                f"• তাপমাত্রা: {tom_min} থেকে {tom_max}\n"
+                f"• বৃষ্টির সম্ভাবনা: {tom_rain}%\n"
+            )
+        else:
+            tomorrow_sec = (
+                f"\n📅 **Tomorrow's Quick Outlook:**\n"
+                f"• Sky: {tom_emo} {tom_desc}\n"
+                f"• Temperature: {tom_min} to {tom_max}\n"
+                f"• Rain Chance: {tom_rain}%\n"
+            )
+
+    if lang == "bn":
+        return (
+            f"🌙 **শুভ সন্ধ্যা! সান্ধ্যকালীন আবহাওয়া আপডেট — {city}**\n"
+            f"⏰ *সন্ধ্যা ০৭:০০ টার নিয়মিত বুলেটিন*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🌡️ **বর্তমান রাতের তাপমাত্রা:** {cur_t} (অনুভূত: {feels_t})\n"
+            f"{cond_e} **রাতের আবহাওয়া:** {cond_t}\n"
+            f"💧 **আর্দ্রতা:** {humidity}%\n"
+            f"{moon_e} **চন্দ্রকলা:** {moon_t} ({moon.get('illumination', '')})\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+            f"{tomorrow_sec}"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛌 *একটি আরামদায়ক ও প্রশান্তিময় রাত কামনা করছি।*"
+        )
+    else:
+        return (
+            f"🌙 **Good Evening! Night Weather Update — {city}**\n"
+            f"⏰ *Regular 07:00 PM Bulletin*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🌡️ **Current Night Temp:** {cur_t} (Feels like: {feels_t})\n"
+            f"{cond_e} **Weather Condition:** {cond_t}\n"
+            f"💧 **Humidity:** {humidity}%\n"
+            f"{moon_e} **Moon Phase:** {moon_t} ({moon.get('illumination', '')})\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+            f"{tomorrow_sec}"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛌 *Wishing you a restful and peaceful night.*"
+        )
+
+async def send_single_user_report(bot, user_id: int, report_type: str = "morning") -> bool:
+    """Directly send a morning or evening weather report to a user (used by /testdaily or tests)."""
+    sub = await get_alert_settings(user_id)
+    lat = sub.get("lat") or 23.7115253
+    lon = sub.get("lon") or 90.4111451
+    city = sub.get("city_name") or "Dhaka"
+    lang = "bn"
+    unit = "C"
+
+    w_data = await get_weather_data(lat, lon, unit)
+    if not w_data:
+        return False
+
+    if report_type == "morning":
+        msg = build_morning_report_message(w_data, city, lang, unit)
+    else:
+        msg = build_evening_report_message(w_data, city, lang, unit)
+
+    await bot.send_message(chat_id=user_id, text=msg, parse_mode="Markdown")
+    return True
+
 async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
     """
-    Checks if it's morning (approx 07:00 local time) or evening (approx 19:00 local time)
+    Checks if it's morning (07:00 AM local Bangladesh time) or evening (07:00 PM local Bangladesh time)
     and delivers daily reports to subscribed users.
+    Bangladesh Time is UTC+6 (Asia/Dhaka).
     """
     subscribers = await get_all_subscribers_for_alerts()
-    # Assume BD time UTC+6 by default
     now_utc = datetime.now(timezone.utc)
     bd_time = now_utc + timedelta(hours=6)
     today_str = bd_time.strftime("%Y-%m-%d")
@@ -146,53 +289,24 @@ async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
         user_id = sub["user_id"]
         lat = sub.get("lat")
         lon = sub.get("lon")
-        city = sub.get("city_name") or "Your City"
+        city = sub.get("city_name") or "Dhaka"
         lang = sub.get("language", "bn")
         unit = sub.get("temp_unit", "C")
+        last_m = sub.get("last_morning_sent")
+        last_e = sub.get("last_evening_sent")
 
         if not lat or not lon:
             continue
 
-        # Morning Report (Trigger between 7 AM and 8 AM)
-        if sub.get("morning_report", 0) == 1 and 7 <= current_hour < 9:
+        # Morning Report: 07:00 AM Bangladesh Time (hour == 7)
+        if sub.get("morning_report", 0) == 1 and current_hour == 7:
             key = f"{user_id}:m"
-            if _last_report_date.get(key) != today_str:
+            if _last_report_date.get(key) != today_str and last_m != today_str:
                 _last_report_date[key] = today_str
+                await update_alert_settings(user_id, last_morning_sent=today_str)
                 w_data = await get_weather_data(lat, lon, unit)
                 if w_data:
-                    cur = w_data["current"]
-                    max_t = format_temp(cur.get("today_max_temp"), unit)
-                    min_t = format_temp(cur.get("today_min_temp"), unit)
-                    rain_p = cur.get("today_rain_chance_max", 0)
-                    wind_s = cur.get("wind_speed", 0.0)
-                    uv = cur.get("today_max_uv", 0.0)
-                    aqi_v = cur.get("aqi", {}).get("us_aqi", 0)
-                    aqi_cat, aqi_emo, _ = get_aqi_category(aqi_v, lang)
-
-                    if lang == "bn":
-                        m_msg = (
-                            f"🌅 **সুপ্রভাত! আজকের আবহাওয়া বুলেটিন — {city}**\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🌡️ **আজকের তাপমাত্রা:** {min_t} থেকে {max_t}\n"
-                            f"🌧️ **বৃষ্টির সম্ভাবনা:** {rain_p}%\n"
-                            f"💨 **বাতাসের গতি:** {wind_s:.1f} কিমি/ঘণ্টা\n"
-                            f"☀️ **ইউভি ইনডেক্স:** {uv:.1f}\n"
-                            f"🌫️ **বায়ুমান (AQI):** {aqi_v} ({aqi_cat} {aqi_emo})\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"✨ *আপনার দিনটি সুন্দর ও নিরাপদ কাটুক!*"
-                        )
-                    else:
-                        m_msg = (
-                            f"🌅 **Good Morning! Daily Weather Brief — {city}**\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🌡️ **Today's Range:** {min_t} to {max_t}\n"
-                            f"🌧️ **Rain Chance:** {rain_p}%\n"
-                            f"💨 **Wind Speed:** {wind_s:.1f} km/h\n"
-                            f"☀️ **UV Index:** {uv:.1f}\n"
-                            f"🌫️ **Air Quality:** {aqi_v} ({aqi_cat} {aqi_emo})\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"✨ *Have a productive and pleasant day!*"
-                        )
+                    m_msg = build_morning_report_message(w_data, city, lang, unit)
                     try:
                         await context.bot.send_message(chat_id=user_id, text=m_msg, parse_mode="Markdown")
                     except Exception as e:
@@ -200,42 +314,15 @@ async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
                             await update_user_setting(user_id, "is_blocked", 1)
                         print(f"Failed morning report to {user_id}: {e}")
 
-        # Evening Report (Trigger between 7 PM and 9 PM)
-        if sub.get("evening_report", 0) == 1 and 19 <= current_hour < 21:
+        # Evening Report: 07:00 PM / 19:00 Bangladesh Time (hour == 19)
+        if sub.get("evening_report", 0) == 1 and current_hour == 19:
             key = f"{user_id}:e"
-            if _last_report_date.get(key) != today_str:
+            if _last_report_date.get(key) != today_str and last_e != today_str:
                 _last_report_date[key] = today_str
+                await update_alert_settings(user_id, last_evening_sent=today_str)
                 w_data = await get_weather_data(lat, lon, unit)
                 if w_data:
-                    cur = w_data["current"]
-                    cur_t = format_temp(cur.get("temp"), unit)
-                    cond_t, cond_e = get_wmo_description(cur.get("wmo_code", 0), lang)
-                    moon = cur.get("moon", {})
-                    moon_e = moon.get("emoji", "🌕")
-                    moon_t = moon.get("name_bn" if lang == "bn" else "name_en", "Moon")
-
-                    if lang == "bn":
-                        e_msg = (
-                            f"🌙 **শুভ সন্ধ্যা! রাতের আবহাওয়া আপডেট — {city}**\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🌡️ **বর্তমান তাপমাত্রা:** {cur_t}\n"
-                            f"{cond_e} **আবহাওয়া:** {cond_t}\n"
-                            f"💧 **আর্দ্রতা:** {cur.get('humidity')}%\n"
-                            f"{moon_e} **চন্দ্রকলা:** {moon_t} ({moon.get('illumination')})\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🛌 *একটি আরামদায়ক ও প্রশান্তিময় রাত কামনা করছি।*"
-                        )
-                    else:
-                        e_msg = (
-                            f"🌙 **Good Evening! Night Weather Update — {city}**\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🌡️ **Current Temp:** {cur_t}\n"
-                            f"{cond_e} **Weather:** {cond_t}\n"
-                            f"💧 **Humidity:** {cur.get('humidity')}%\n"
-                            f"{moon_e} **Moon Phase:** {moon_t} ({moon.get('illumination')})\n"
-                            f"━━━━━━━━━━━━━━━━━━━━\n"
-                            f"🛌 *Wishing you a restful and peaceful night.*"
-                        )
+                    e_msg = build_evening_report_message(w_data, city, lang, unit)
                     try:
                         await context.bot.send_message(chat_id=user_id, text=e_msg, parse_mode="Markdown")
                     except Exception as e:
@@ -247,10 +334,10 @@ def setup_scheduler(application):
     """Register repeating jobs on the bot's JobQueue."""
     jq = application.job_queue
     if jq:
-        # Check alerts every 30 minutes (1800 seconds), starting after 60 seconds
-        jq.run_repeating(check_rain_and_severe_alerts, interval=1800, first=60, name="rain_severe_alerts")
-        # Check daily reports every 20 minutes (1200 seconds), starting after 120 seconds
-        jq.run_repeating(check_daily_reports, interval=1200, first=120, name="daily_reports")
-        print("✅ Background Weather Alert & Report Schedulers configured.")
+        # Check alerts every 15 minutes (900 seconds), starting after 45 seconds
+        jq.run_repeating(check_rain_and_severe_alerts, interval=900, first=45, name="rain_severe_alerts")
+        # Check daily reports every 3 minutes (180 seconds), starting after 60 seconds
+        jq.run_repeating(check_daily_reports, interval=180, first=60, name="daily_reports")
+        print("✅ Background Weather Alert & Report Schedulers configured (07:00 AM & 07:00 PM BD Time).")
     else:
         print("⚠️ JobQueue not available. Background alerts will not run.")

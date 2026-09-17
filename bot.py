@@ -30,6 +30,23 @@ from handlers.weather_handler import weather_command, random_command, location_h
 from handlers.forecast_handler import forecast_command, hourly_command, advice_command
 from handlers.division_handler import show_divisions_menu, division_callback_dispatcher
 from handlers.conversation import handle_text_message
+from handlers.user_handlers import (
+    subscribe_command,
+    unsubscribe_command,
+    alerts_command,
+    settings_command,
+    location_command,
+    favorites_command,
+    testdaily_command,
+    user_preferences_callback
+)
+from handlers.admin_handlers import (
+    admin_command,
+    broadcast_command,
+    block_user_command,
+    unblock_user_command
+)
+from jobs.scheduler import setup_scheduler
 
 import os
 import threading
@@ -78,6 +95,8 @@ async def post_init(application):
         BotCommand("hourly", "২৪ ঘণ্টার পূর্বাভাস / 24-hour forecast"),
         BotCommand("forecast", "৭ দিনের পূর্বাভাস / 7-day forecast"),
         BotCommand("weather", "রিয়েল-টাইম আবহাওয়া / Real-time weather"),
+        BotCommand("subscribe", "দৈনিক বুলেটিন (সকাল ৭টা ও সন্ধ্যা ৭টা) / Subscribe"),
+        BotCommand("alerts", "অ্যালার্ট সেটিংস / Alert Settings"),
         BotCommand("help", "কমান্ডের নির্দেশিকা / Help & commands"),
         BotCommand("about", "বট সম্পর্কে / About the bot")
     ]
@@ -113,6 +132,9 @@ def main():
         .build()
     )
 
+    # Initialize Scheduler (Twice-Daily Alerts at 07:00 AM & 07:00 PM BD Time + Severe Alerts)
+    setup_scheduler(application)
+
     # 1. Common Commands
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -126,14 +148,30 @@ def main():
     application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("advice", advice_command))
 
-    # 3. Hierarchical Division & Weather Button Callbacks
+    # 3. Notification & Alert Subscription Commands
+    application.add_handler(CommandHandler("subscribe", subscribe_command))
+    application.add_handler(CommandHandler("unsubscribe", unsubscribe_command))
+    application.add_handler(CommandHandler("alerts", alerts_command))
+    application.add_handler(CommandHandler("settings", settings_command))
+    application.add_handler(CommandHandler("location", location_command))
+    application.add_handler(CommandHandler("favorites", favorites_command))
+    application.add_handler(CommandHandler("testdaily", testdaily_command))
+
+    # 4. Admin Management Commands
+    application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("broadcast", broadcast_command))
+    application.add_handler(CommandHandler("block", block_user_command))
+    application.add_handler(CommandHandler("unblock", unblock_user_command))
+
+    # 5. Callbacks
     application.add_handler(CallbackQueryHandler(division_callback_dispatcher, pattern=r"^(div|dist|dist_p|upz|back):"))
     application.add_handler(CallbackQueryHandler(weather_callback_dispatcher, pattern=r"^(ref|hr|fc|adv):"))
+    application.add_handler(CallbackQueryHandler(user_preferences_callback, pattern=r"^(cfg|alt|delfav):"))
 
-    # 4. Native Location Attachment
+    # 6. Native Location Attachment
     application.add_handler(MessageHandler(filters.LOCATION, location_handler))
 
-    # 5. Plain Text & Conversational Assistant
+    # 7. Plain Text & Conversational Assistant
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message))
 
     # Error handler

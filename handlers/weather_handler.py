@@ -39,11 +39,56 @@ def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "b
         ]
     return InlineKeyboardMarkup(keyboard)
 
+def get_severe_weather_alert(data: dict, lang: str = "bn") -> str:
+    """Detect extreme or hazardous weather conditions and produce prominent safety alerts."""
+    cur = data.get("current", {})
+    hourly = data.get("hourly", {})
+    wmo_code = cur.get("wmo_code", 0)
+    wind_speed = cur.get("wind_speed", 0.0)
+    temp = cur.get("temp", 25.0)
+    rain_probs = hourly.get("precipitation_probability", [])
+    
+    # Check next 2-3 hours rain risk
+    next_rain = max(rain_probs[:3]) if rain_probs else cur.get("today_rain_chance_max", 0)
+    
+    alerts = []
+    if lang == "bn":
+        if wmo_code in [95, 96, 99]:
+            alerts.append("• ⚡ **বজ্রঝড় ও বজ্রপাত সতর্কতা:** আগামী কয়েক ঘণ্টায় তীব্র বজ্রপাত ও শিলাবৃষ্টির আশঙ্কা! খোলা মাঠ বা গাছের নিচে অবস্থান করবেন না, নিরাপদ পাকা আশ্রয়ে থাকুন।")
+        elif next_rain >= 75:
+            alerts.append(f"• 🌧️ **ভারী বৃষ্টিপাত সতর্কতা:** আগামী কয়েক ঘণ্টায় ভারি থেকে অতিভারি বর্ষণের প্রবল সম্ভাবনা ({next_rain}%)! নিম্নাঞ্চলে জলাবদ্ধতার বিষয়ে সতর্ক থাকুন।")
+        
+        if wind_speed >= 38.0:
+            alerts.append(f"• 💨 **ঝড়ো হাওয়া সতর্কতা:** বাতাসের গতিবেগ ঘণ্টায় {wind_speed:.1f} কিমি ছাড়িয়েছে! দুর্বল স্থাপনা ও গাছপালা থেকে দূরে থাকুন।")
+        
+        if temp >= 38.0:
+            alerts.append(f"• 🔥 **তীব্র তাপদাহ সতর্কতা:** তাপমাত্রা {temp:.1f}°C ছাড়িয়েছে! পর্যাপ্ত বিশুদ্ধ পানি পান করুন এবং সরাসরি তীব্র রোদ এড়িয়ে চলুন।")
+        elif temp <= 10.0:
+            alerts.append(f"• ❄️ **তীব্র শৈত্যপ্রবাহ সতর্কতা:** তাপমাত্রা {temp:.1f}°C-এ নেমেছে! শিশু ও বয়োবৃদ্ধদের পর্যাপ্ত গরম কাপড়ে রাখুন।")
+    else:
+        if wmo_code in [95, 96, 99]:
+            alerts.append("• ⚡ **Severe Thunderstorm Alert:** High risk of lightning and hail in the coming hours! Stay indoors away from open fields and trees.")
+        elif next_rain >= 75:
+            alerts.append(f"• 🌧️ **Heavy Downpour Alert:** High probability of heavy rainfall ({next_rain}%)! Be cautious of urban waterlogging.")
+        if wind_speed >= 38.0:
+            alerts.append(f"• 💨 **Gale Wind Alert:** Wind speed exceeds {wind_speed:.1f} km/h! Stay safe from loose objects.")
+        if temp >= 38.0:
+            alerts.append(f"• 🔥 **Extreme Heatwave Alert:** Temp reached {temp:.1f}°C! Stay hydrated.")
+        elif temp <= 10.0:
+            alerts.append(f"• ❄️ **Severe Cold Wave Alert:** Temp dropped to {temp:.1f}°C! Wear warm layers.")
+
+    if not alerts:
+        return ""
+
+    header = "⚠️ **জরুরি আবহাওয়া সতর্কতা:**" if lang == "bn" else "⚠️ **Severe Weather Warning:**"
+    return f"{header}\n" + "\n".join(alerts) + "\n──────────────────────\n\n"
+
 def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
     """Format full 16-parameter weather status card."""
     cur = data["current"]
     wmo_code = cur.get("wmo_code", 0)
     cond_text, cond_emoji = get_wmo_description(wmo_code, lang)
+    severe_banner = get_severe_weather_alert(data, lang)
     
     temp_str = format_temp(cur.get("temp"), unit)
     feels_str = format_temp(cur.get("feels_like"), unit)
@@ -79,7 +124,8 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
     if lang == "bn":
         return (
             f"🌦️ **রিয়েল-টাইম আবহাওয়া পরিস্থিতি — {city_name}**\n"
-            f"──────────────────────\n\n"
+            f"──────────────────────\n"
+            f"{severe_banner}"
             f"🌡️ **তাপমাত্রা ও অনুভূতি:**\n"
             f"• বর্তমান তাপমাত্রা: **{temp_str}** (অনুভূত: {feels_str})\n"
             f"• আকাশের অবস্থা: {cond_emoji} {cond_text}\n"

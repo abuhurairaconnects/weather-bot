@@ -10,7 +10,9 @@ from database.db import (
     get_favorites, delete_favorite, get_alert_settings, update_alert_settings
 )
 from services.weather_api import search_city
+from services.bd_geocoder import find_bd_location
 from handlers.common import get_main_keyboard
+from config import is_admin
 
 def build_settings_keyboard(lang: str, unit: str) -> InlineKeyboardMarkup:
     """Build settings interactive keyboard."""
@@ -229,3 +231,112 @@ async def user_preferences_callback(update: Update, context: ContextTypes.DEFAUL
                 ])
             lines.append("━━━━━━━━━━━━━━━━━━━━\n💡 *আবহাওয়া দেখতে বা মুছে ফেলতে নিচের বাটন চাপুন:*")
             await query.edit_message_text("\n".join(lines), parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons))
+
+async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /subscribe [location] to subscribe to 07:00 AM & 07:00 PM daily reports and severe alerts."""
+    user = update.effective_user
+    db_user = await get_or_create_user(user.id, user.username, user.first_name)
+    
+    args = context.args
+    query = " ".join(args).strip() if args else ""
+    
+    target_city = None
+    lat = None
+    lon = None
+    
+    if query:
+        bd_loc = find_bd_location(query)
+        if bd_loc:
+            target_city = bd_loc["display_name"]
+            lat = bd_loc["lat"]
+            lon = bd_loc["lon"]
+        else:
+            cities = await search_city(query)
+            if cities:
+                c = cities[0]
+                target_city = c["display_name"]
+                lat = c["lat"]
+                lon = c["lon"]
+            else:
+                await update.message.reply_text(
+                    f"❌ '{query}' এলাকাটি খুঁজে পাওয়া যায়নি।\n"
+                    f"অনুগ্রহ করে বাংলাদেশের কোনো জেলা বা উপজেলার নাম সঠিকভাবে লিখুন।\n"
+                    f"যেমন: `/subscribe Dhaka` বা `/subscribe তাড়াশ`",
+                    parse_mode="Markdown"
+                )
+                return
+    else:
+        # Use existing configured location or default to Dhaka
+        cur_alerts = await get_alert_settings(user.id)
+        if cur_alerts.get("lat") and cur_alerts.get("lon") and cur_alerts.get("city_name"):
+            target_city = cur_alerts["city_name"]
+            lat = cur_alerts["lat"]
+            lon = cur_alerts["lon"]
+        else:
+            def_c = db_user.get("default_city")
+            if def_c and db_user.get("default_lat"):
+                target_city = def_c
+                lat = db_user.get("default_lat")
+                lon = db_user.get("default_lon")
+            else:
+                target_city = "Dhaka"
+                lat = 23.7115253
+                lon = 90.4111451
+
+    # Save to alert settings
+    await update_alert_settings(
+        user.id,
+        city_name=target_city,
+        lat=lat,
+        lon=lon,
+        morning_report=1,
+        evening_report=1,
+        severe_alert=1,
+        rain_alert=1
+    )
+    await set_default_location(user.id, target_city, lat, lon)
+
+    msg = (
+        f"✅ **স্বয়ংক্রিয় আবহাওয়া আপডেটে সফলভাবে সাবস্ক্রাইব করা হয়েছে!**\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📍 **নির্ধারিত এলাকা:** {target_city}\n"
+        f"⏰ **আপডেটের সময়সূচি:**\n"
+        f"  • 🌅 **সকাল ০৭:০০ টা:** দিনের তাপমাত্রা, বৃষ্টির সম্ভাবনা, ছাতা ও AQI বুলেটিন\n"
+        f"  • 🌙 **সন্ধ্যা ০৭:০০ টা:** রাতের আবহাওয়া, চন্দ্রকলা ও আগামীকালের পূর্বাভাস\n"
+        f"  • ⚡ **জরুরি সতর্কবার্তা:** কালবৈশাখী, বজ্রঝড় বা চরম আবহাওয়ায় তাৎক্ষণিক নোটিফিকেশন\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"💡 *যেকোনো সময় সাবস্ক্রিপশন বাতিল করতে `/unsubscribe` লিখুন অথবা সেটিংস পরিবর্তন করতে `/alerts` দেখুন।*"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /unsubscribe to stop automatic daily reports and alerts."""
+    user = update.effective_user
+    await update_alert_settings(
+        user.id,
+        morning_report=0,
+        evening_report=0,
+        rain_alert=0,
+        severe_alert=0
+    )
+    msg = (
+        f"❌ **আবহাওয়া বুলেটিন সাবস্ক্রিপশন সফলভাবে বাতিল করা হয়েছে।**\n\n"
+        f"আপনি আর প্রতিদিন সকাল ৭:০০ টা ও সন্ধ্যা ৭:০০ টার স্বয়ংক্রিয় মেসেজ পাবেন না।\n"
+        f"পুনরায় চালু করতে চাইলে যেকোনো সময় `/subscribe` কমান্ড দিন।"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def testdaily_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Test send morning or evening report immediately (for testing)."""
+    user = update.effective_user
+    from jobs.scheduler import send_single_user_report
+    report_type = "morning"
+    if context.args and context.args[0].lower() in ["evening", "eve", "night", "সন্ধ্যা"]:
+        report_type = "evening"
+        
+    sent = await send_single_user_report(context.bot, user.id, report_type=report_type)
+    if sent:
+        await update.message.reply_text(f"✅ টেস্ট {report_type} বুলেটিন সফলভাবে পাঠানো হয়েছে!")
+    else:
+        await update.message.reply_text("❌ টেস্ট বুলেটিন পাঠানো সম্ভব হয়নি। অনুগ্রহ করে আবহাওয়া ডাটা চেক করুন।")
+

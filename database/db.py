@@ -4,7 +4,7 @@ Stores users, settings, favorites, alert preferences, and search logs.
 """
 import aiosqlite
 from typing import Optional, Dict, Any, List
-from config import DB_PATH, DEFAULT_LANGUAGE, DEFAULT_TEMP_UNIT
+from config import DB_PATH, DEFAULT_LANGUAGE, DEFAULT_TEMP_UNIT, PRIMARY_ADMIN_ID
 
 async def init_db():
     """Initialize database tables."""
@@ -53,6 +53,8 @@ async def init_db():
                 evening_time TEXT DEFAULT '19:00',
                 quiet_start TEXT DEFAULT '23:00',
                 quiet_end TEXT DEFAULT '06:00',
+                last_morning_sent TEXT,
+                last_evening_sent TEXT,
                 FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
             )
         """)
@@ -65,7 +67,41 @@ async def init_db():
                 searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migration: Ensure last_morning_sent and last_evening_sent exist in alerts table
+        async with db.execute("PRAGMA table_info(alerts)") as cur:
+            existing_cols = {row[1] for row in await cur.fetchall()}
+            if "last_morning_sent" not in existing_cols:
+                await db.execute("ALTER TABLE alerts ADD COLUMN last_morning_sent TEXT")
+            if "last_evening_sent" not in existing_cols:
+                await db.execute("ALTER TABLE alerts ADD COLUMN last_evening_sent TEXT")
         
+        await db.commit()
+
+    # Automatically enroll Primary Admin/Developer (Abu Huraira) for 7 AM and 7 PM alerts
+    await ensure_admin_subscription()
+
+async def ensure_admin_subscription():
+    """Ensure primary developer/admin (Abu Huraira) is enrolled for 7 AM & 7 PM alerts."""
+    if not PRIMARY_ADMIN_ID:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT OR IGNORE INTO users (user_id, username, first_name, language, temp_unit, default_city, default_lat, default_lon)
+            VALUES (?, ?, ?, 'bn', 'C', 'Dhaka', 23.7115253, 90.4111451)
+        """, (PRIMARY_ADMIN_ID, "mrhuraira78", "Abu Huraira"))
+        
+        await db.execute("""
+            INSERT INTO alerts (user_id, city_name, lat, lon, rain_alert, severe_alert, morning_report, evening_report, morning_time, evening_time)
+            VALUES (?, 'Dhaka', 23.7115253, 90.4111451, 1, 1, 1, 1, '07:00', '19:00')
+            ON CONFLICT(user_id) DO UPDATE SET
+                morning_report = 1,
+                evening_report = 1,
+                severe_alert = 1,
+                city_name = COALESCE(alerts.city_name, 'Dhaka'),
+                lat = COALESCE(alerts.lat, 23.7115253),
+                lon = COALESCE(alerts.lon, 90.4111451)
+        """, (PRIMARY_ADMIN_ID,))
         await db.commit()
 
 async def get_or_create_user(user_id: int, username: Optional[str] = None, first_name: Optional[str] = None) -> Dict[str, Any]:
@@ -181,7 +217,7 @@ async def update_alert_settings(user_id: int, **kwargs):
     valid_keys = {
         "city_name", "lat", "lon", "rain_alert", "severe_alert",
         "morning_report", "evening_report", "morning_time", "evening_time",
-        "quiet_start", "quiet_end"
+        "quiet_start", "quiet_end", "last_morning_sent", "last_evening_sent"
     }
     updates = []
     values = []
