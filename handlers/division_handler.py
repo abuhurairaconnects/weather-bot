@@ -250,6 +250,18 @@ async def show_lightning_divisions_menu(update: Update, context: ContextTypes.DE
     elif update.message:
         await update.message.reply_text(text, parse_mode="Markdown", reply_markup=markup)
 
+async def safe_edit_callback_message(query, text: str, markup: Optional[InlineKeyboardMarkup] = None):
+    """Safely edit callback message without throwing if text is identical or edit fails."""
+    try:
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+    except Exception as e:
+        if "Message is not modified" in str(e):
+            return
+        try:
+            await query.message.reply_text(text, parse_mode="Markdown", reply_markup=markup)
+        except Exception:
+            pass
+
 async def division_callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles callbacks for division, district, and upazila navigation."""
     query = update.callback_query
@@ -271,7 +283,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             "──────────────────────\n"
             "অনুগ্রহ করে আপনার কাঙ্ক্ষিত **বিভাগ** নির্বাচন করুন:"
         )
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=build_divisions_keyboard())
+        await safe_edit_callback_message(query, text, build_divisions_keyboard())
         return
 
     # 2. Division clicked -> Show districts
@@ -286,7 +298,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"আপনার কাঙ্ক্ষিত **জেলা** নির্বাচন করুন:"
         )
         markup = build_districts_keyboard(division_en)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 3. District clicked -> Show upazilas (page 0)
@@ -302,7 +314,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"আপনার কাঙ্ক্ষিত **উপজেলা** নির্বাচন করুন:"
         )
         markup = build_upazilas_keyboard(canon_dist, page=0)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 4. Upazila pagination (dist_p:<district_en>:<page>)
@@ -320,7 +332,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"আপনার কাঙ্ক্ষিত **উপজেলা** নির্বাচন করুন:"
         )
         markup = build_upazilas_keyboard(canon_dist, page=page)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 5. Upazila clicked -> Show complete real-time weather card
@@ -328,7 +340,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
         upazila_en = data.split(":", 1)[1]
         loc = find_bd_location(upazila_en)
         if not loc:
-            await query.edit_message_text(f"⚠️ '{upazila_en}' এর তথ্য পাওয়া যায়নি।")
+            await safe_edit_callback_message(query, f"⚠️ '{upazila_en}' এর তথ্য পাওয়া যায়নি।")
             return
 
         user = update.effective_user
@@ -338,7 +350,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
 
         weather_data = await get_weather_data(loc["lat"], loc["lon"], unit)
         if not weather_data:
-            await query.edit_message_text("⚠️ আবহাওয়ার তথ্য লোড করা যায়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।")
+            await safe_edit_callback_message(query, "⚠️ আবহাওয়ার তথ্য লোড করা যায়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।")
             return
 
         card = format_current_weather_card(weather_data, loc["display_name"], lang, unit)
@@ -349,11 +361,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             loc.get("district") or loc.get("name"),
             lang
         )
-
-        try:
-            await query.edit_message_text(card, parse_mode="Markdown", reply_markup=markup)
-        except Exception:
-            await query.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, card, markup)
         return
 
     # 6. Lightning: Back to division list
@@ -363,7 +371,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             "──────────────────────\n"
             "আপনার এলাকার সুনির্দিষ্ট বজ্রপাত ঝুঁকি, কালবৈশাখী ঝড় ও বৃষ্টির আগাম সতর্কবার্তা জানতে নিচের তালিকা থেকে **বিভাগ** নির্বাচন করুন:"
         )
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=build_lightning_divisions_keyboard())
+        await safe_edit_callback_message(query, text, build_lightning_divisions_keyboard())
         return
 
     # 7. Lightning: Division clicked or Back to district list -> Show districts
@@ -378,7 +386,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"বজ্রপাত সতর্কতা দেখতে আপনার কাঙ্ক্ষিত **জেলা** নির্বাচন করুন:"
         )
         markup = build_lightning_districts_keyboard(division_en)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 8. Lightning: District clicked or Back to upazila list -> Show upazilas (page 0)
@@ -394,7 +402,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"সুনির্দিষ্ট এলাকার বজ্রপাত ঝুঁকি ও সতর্কবার্তা দেখতে **উপজেলা** নির্বাচন করুন:"
         )
         markup = build_lightning_upazilas_keyboard(canon_dist, page=0)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 9. Lightning: Upazila pagination (ldist_p:<district_en>:<page>)
@@ -412,7 +420,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             f"সুনির্দিষ্ট এলাকার বজ্রপাত ঝুঁকি ও সতর্কবার্তা দেখতে **উপজেলা** নির্বাচন করুন:"
         )
         markup = build_lightning_upazilas_keyboard(canon_dist, page=page)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, text, markup)
         return
 
     # 10. Lightning: Upazila clicked -> Show dedicated lightning alert card
@@ -420,7 +428,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
         upazila_en = data.split(":", 1)[1]
         loc = find_bd_location(upazila_en)
         if not loc:
-            await query.edit_message_text(f"⚠️ '{upazila_en}' এর তথ্য পাওয়া যায়নি।")
+            await safe_edit_callback_message(query, f"⚠️ '{upazila_en}' এর তথ্য পাওয়া যায়নি।")
             return
 
         user = update.effective_user
@@ -430,7 +438,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
 
         weather_data = await get_weather_data(loc["lat"], loc["lon"], unit)
         if not weather_data:
-            await query.edit_message_text("⚠️ আবহাওয়া তথ্য লোড করা যায়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।")
+            await safe_edit_callback_message(query, "⚠️ আবহাওয়া তথ্য লোড করা যায়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।")
             return
 
         card = format_lightning_alert_card(weather_data, loc["display_name"], lang, unit)
@@ -441,11 +449,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
             loc.get("district") or loc.get("name"),
             lang
         )
-
-        try:
-            await query.edit_message_text(card, parse_mode="Markdown", reply_markup=markup)
-        except Exception:
-            await query.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, card, markup)
         return
 
     # 11. Lightning: Refresh button clicked (lref:<lat>:<lon>:<city_name>)
@@ -474,10 +478,6 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
 
         card = format_lightning_alert_card(weather_data, display_name, lang, unit)
         markup = build_upazila_lightning_buttons(lat, lon, city_name, district_en, lang)
-
-        try:
-            await query.edit_message_text(card, parse_mode="Markdown", reply_markup=markup)
-            await query.answer("✅ তথ্য সফলভাবে আপডেট হয়েছে!")
-        except Exception:
-            pass
+        await safe_edit_callback_message(query, card, markup)
+        await query.answer("✅ তথ্য সফলভাবে আপডেট হয়েছে!")
         return

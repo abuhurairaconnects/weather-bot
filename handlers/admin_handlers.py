@@ -4,12 +4,8 @@ Restricted to ADMIN_IDS configured in config.py or .env.
 """
 from telegram import Update
 from telegram.ext import ContextTypes
-from config import ADMIN_IDS
+from config import ADMIN_IDS, is_admin
 from database.db import get_admin_stats, get_all_user_ids, update_user_setting
-
-def is_admin(user_id: int) -> bool:
-    """Verify if user is in admin list. If ADMIN_IDS is empty, allow first user or warn."""
-    return (not ADMIN_IDS) or (user_id in ADMIN_IDS)
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /admin dashboard view."""
