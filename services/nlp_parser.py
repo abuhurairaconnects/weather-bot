@@ -130,12 +130,12 @@ def classify_intent(text: str) -> Dict[str, Any]:
     if any(k in lower for k in ["বাতাসের মান", "ধোঁয়াশা", "ধূলাবালি", "air quality", "pollution"]):
         return {"intent": "aqi", "city": city}
 
-    # General Weather intent
+    # General Weather intent (explicit keywords)
     if any(k in lower for k in ["আবহাওয়া", "ওয়েদার", "আজকের ওয়েদার", "আজকে কেমন", "weather"]):
         return {"intent": "general_weather", "city": city}
 
-    # If it's just a city name
-    if city and len(lower) < 25:
-        return {"intent": "general_weather", "city": city}
+    # If it's solely a known city name or alias (e.g. "Dhaka", "ঢাকা", "সিলেট")
+    if lower in COMMON_CITY_ALIASES:
+        return {"intent": "general_weather", "city": COMMON_CITY_ALIASES[lower]}
 
     return {"intent": "unknown", "city": city}

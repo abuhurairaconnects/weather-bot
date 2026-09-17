@@ -10,6 +10,8 @@ services:
         sync: false
       - key: ADMIN_USER_IDS
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: DEFAULT_LANGUAGE
         value: bn
       - key: DEFAULT_TEMP_UNIT
