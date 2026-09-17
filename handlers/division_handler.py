@@ -107,10 +107,13 @@ def build_upazila_weather_buttons(lat: float, lon: float, city_name: str, distri
         InlineKeyboardButton("📅 ৭ দিন" if lang == "bn" else "📅 7 Days", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{city_name}")
     ]
     row2 = [
-        InlineKeyboardButton("🔄 রিফ্রেশ" if lang == "bn" else "🔄 Refresh", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}"),
+        InlineKeyboardButton("⚡ বজ্রপাত সতর্কতা" if lang == "bn" else "⚡ Lightning", callback_data=f"lref:{lat:.4f}:{lon:.4f}:{city_name}"),
+        InlineKeyboardButton("🔄 রিফ্রেশ" if lang == "bn" else "🔄 Refresh", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}")
+    ]
+    row3 = [
         InlineKeyboardButton("🔙 উপজেলা তালিকা", callback_data=f"back:upz:{district_en}")
     ]
-    return InlineKeyboardMarkup([row1, row2])
+    return InlineKeyboardMarkup([row1, row2, row3])
 
 async def safe_edit_callback_message(query, text: str, markup: Optional[InlineKeyboardMarkup] = None):
     """Safely edit callback message without throwing if text is identical or edit fails."""

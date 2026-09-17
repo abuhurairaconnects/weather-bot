@@ -11,3 +11,4 @@ data/*.sqlite3
 data/cache/
 charts/*.png
 temp/
+fb autumation/

@@ -11,7 +11,7 @@ from services.recommendations import generate_recommendations, format_recommenda
 from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "bn") -> InlineKeyboardMarkup:
-    """Build inline keyboard with core options: 24h, 7-Day, Smart Advice, Refresh."""
+    """Build inline keyboard with core options: 24h, 7-Day, Lightning, Smart Advice, Refresh."""
     c_clean = city_name.split(",")[0].strip()
     # Ensure byte length never exceeds Telegram's 64-byte callback_data limit
     c_short = c_clean.encode("utf-8")[:18].decode("utf-8", errors="ignore")
@@ -22,7 +22,10 @@ def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "b
                 InlineKeyboardButton("📅 ৭ দিন", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{c_short}")
             ],
             [
-                InlineKeyboardButton("🧠 স্মার্ট পরামর্শ", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("⚡ বজ্রপাত সতর্কতা", callback_data=f"lref:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("🧠 স্মার্ট পরামর্শ", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}")
+            ],
+            [
                 InlineKeyboardButton("🔄 রিফ্রেশ", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}")
             ]
         ]
@@ -33,7 +36,10 @@ def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "b
                 InlineKeyboardButton("📅 7-Day", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{c_short}")
             ],
             [
-                InlineKeyboardButton("🧠 Smart Advice", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("⚡ Lightning Alert", callback_data=f"lref:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("🧠 Smart Advice", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}")
+            ],
+            [
                 InlineKeyboardButton("🔄 Refresh", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}")
             ]
         ]
@@ -277,33 +283,57 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
 
-    weather_data = await get_weather_data(lat, lon, unit)
-    if not weather_data:
-        await query.edit_message_text("⚠️ ডেটা রিলোড করা যায়নি।")
-        return
+    from services.bd_geocoder import find_bd_location
+    from services.weather_api import invalidate_weather_cache
+    from handlers.division_handler import (
+        build_upazila_weather_buttons,
+        build_upazila_hourly_buttons,
+        build_upazila_daily_buttons,
+        safe_edit_callback_message
+    )
+
+    loc = find_bd_location(city_name)
+    display_name = loc["display_name"] if loc else city_name
+    district_en = (loc.get("district") if loc else None) or city_name
 
     if action == "ref":
-        card = format_current_weather_card(weather_data, city_name, lang, unit)
-        markup = build_weather_buttons(lat, lon, city_name, lang)
-        try:
-            await query.edit_message_text(card, parse_mode="Markdown", reply_markup=markup)
-        except Exception:
-            pass  # Message is identical
+        invalidate_weather_cache(lat, lon)
+        weather_data = await get_weather_data(lat, lon, unit)
+        if not weather_data:
+            await query.answer("⚠️ রিফ্রেশ ব্যর্থ হয়েছে!", show_alert=True)
+            return
 
-    elif action == "adv":
+        if loc and loc.get("type") == "upazila":
+            markup = build_upazila_weather_buttons(lat, lon, city_name, district_en, lang)
+        else:
+            markup = build_weather_buttons(lat, lon, city_name, lang)
+
+        card = format_current_weather_card(weather_data, display_name, lang, unit)
+        await safe_edit_callback_message(query, card, markup)
+        await query.answer("✅ তথ্য সফলভাবে আপডেট হয়েছে!")
+        return
+
+    weather_data = await get_weather_data(lat, lon, unit)
+    if not weather_data:
+        await safe_edit_callback_message(query, "⚠️ ডেটা রিলোড করা যায়নি।")
+        return
+
+    if action == "adv":
         rec = generate_recommendations(weather_data, lang)
-        msg = format_recommendations_message(rec, city_name, lang)
+        msg = format_recommendations_message(rec, display_name, lang)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
 
     elif action == "hr":
         from handlers.forecast_handler import format_hourly_message
-        msg = format_hourly_message(weather_data, city_name, lang, unit)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
+        msg = format_hourly_message(weather_data, display_name, lang, unit)
+        markup = build_upazila_hourly_buttons(lat, lon, city_name, district_en, lang)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown", reply_markup=markup)
 
     elif action == "fc":
         from handlers.forecast_handler import format_daily_forecast_message
-        msg = format_daily_forecast_message(weather_data, city_name, lang, unit)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
+        msg = format_daily_forecast_message(weather_data, display_name, lang, unit)
+        markup = build_upazila_daily_buttons(lat, lon, city_name, district_en, lang)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown", reply_markup=markup)
 
 def format_lightning_alert_card(data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
     """Produce comprehensive lightning & thunderstorm status and safety report."""
@@ -422,6 +452,11 @@ async def lightning_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     card = format_lightning_alert_card(weather_data, city_info["display_name"], lang, unit)
-    markup = build_weather_buttons(city_info["lat"], city_info["lon"], city_info["name"], lang)
+    if city_info.get("type") == "upazila":
+        from handlers.division_handler import build_upazila_lightning_buttons
+        district_en = city_info.get("district") or city_info["name"]
+        markup = build_upazila_lightning_buttons(city_info["lat"], city_info["lon"], city_info["name"], district_en, lang)
+    else:
+        markup = build_weather_buttons(city_info["lat"], city_info["lon"], city_info["name"], lang)
     await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
 

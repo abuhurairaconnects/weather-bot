@@ -182,8 +182,14 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ পূর্বাভাস লোড করা যায়নি।")
         return
 
+    from handlers.division_handler import build_upazila_daily_buttons
+    from services.bd_geocoder import find_bd_location
+    loc = find_bd_location(city["name"])
+    district_en = (loc.get("district") if loc else None) or city["name"]
+    markup = build_upazila_daily_buttons(city["lat"], city["lon"], city["name"], district_en, lang)
+
     msg = format_daily_forecast_message(data, city["display_name"], lang, unit)
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=markup)
 
 async def hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /hourly [city]."""
@@ -215,8 +221,14 @@ async def hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ পূর্বাভাস লোড করা যায়নি।")
         return
 
+    from handlers.division_handler import build_upazila_hourly_buttons
+    from services.bd_geocoder import find_bd_location
+    loc = find_bd_location(city["name"])
+    district_en = (loc.get("district") if loc else None) or city["name"]
+    markup = build_upazila_hourly_buttons(city["lat"], city["lon"], city["name"], district_en, lang)
+
     msg = format_hourly_message(data, city["display_name"], lang, unit)
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=markup)
 
 async def airquality_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /airquality [city]."""
