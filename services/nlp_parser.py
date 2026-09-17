@@ -168,7 +168,7 @@ COMMON_CITY_ALIASES = {
 }
 
 def extract_city_from_text(text: str) -> Optional[str]:
-    """Scan text for known city mentions with multi-word priority, suffix normalization, and candidate extraction."""
+    """Scan text for known city mentions with Bangladesh geocoder, multi-word priority, suffix normalization, and candidate extraction."""
     lower = text.lower().strip()
 
     # Conversational non-weather guard
@@ -180,24 +180,42 @@ def extract_city_from_text(text: str) -> Optional[str]:
     if any(c in lower for c in conversational_triggers):
         return None
 
-    # 1. Direct match
+    # 1. Primary check: Full phrase check against verified BD Geocoder
+    try:
+        from services.bd_geocoder import find_bd_location
+        bd_match = find_bd_location(text)
+        if bd_match:
+            return bd_match["name"]
+    except Exception:
+        pass
+
+    # 2. Direct alias match
     if lower in COMMON_CITY_ALIASES:
         return COMMON_CITY_ALIASES[lower]
 
-    # 2. Normalized direct match
+    # 3. Normalized direct match
     norm_direct = normalize_bengali_name(lower)
     if norm_direct in COMMON_CITY_ALIASES:
         return COMMON_CITY_ALIASES[norm_direct]
 
-    # 3. Multi-word alias check (longest key first)
+    # 4. Multi-word alias check (longest key first)
     sorted_aliases = sorted(COMMON_CITY_ALIASES.keys(), key=len, reverse=True)
     for alias in sorted_aliases:
         if len(alias) >= 3 and alias in lower:
             return COMMON_CITY_ALIASES[alias]
 
-    # 4. Word-by-word with Bengali inflection normalization
+    # 5. Word-by-word with BD Geocoder and Bengali inflection normalization
     words = re.findall(r"[\u0980-\u09FFa-zA-Z]+", text)
     for w in words:
+        # Check BD geocoder for each word
+        try:
+            from services.bd_geocoder import find_bd_location
+            w_bd = find_bd_location(w)
+            if w_bd:
+                return w_bd["name"]
+        except Exception:
+            pass
+
         w_lower = w.lower()
         if w_lower in COMMON_CITY_ALIASES:
             return COMMON_CITY_ALIASES[w_lower]
@@ -205,7 +223,7 @@ def extract_city_from_text(text: str) -> Optional[str]:
         if w_norm in COMMON_CITY_ALIASES:
             return COMMON_CITY_ALIASES[w_norm]
 
-    # 5. Candidate word extraction for random upazilas/villages not in dictionary
+    # 6. Candidate word extraction for random upazilas/villages not in dictionary
     weather_stopwords = {
         "weather", "climate", "forecast", "temp", "temperature", "rain", "rainy",
         "আবহাওয়া", "আবহাওয়া", "আবহাওয়ার", "আবহাওয়ার", "ওয়েদার", "ওয়েদার", "ওয়েদারের", "ওয়েদারের",

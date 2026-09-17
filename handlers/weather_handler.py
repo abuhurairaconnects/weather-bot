@@ -158,6 +158,26 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     markup = build_weather_buttons(city["lat"], city["lon"], city["name"], lang)
     await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
 
+async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /random command to fetch weather for a random Bangladesh upazila."""
+    import random
+    from services.bd_geocoder import _BD_LOCATIONS, find_bd_location
+    user = update.effective_user
+    db_user = await get_or_create_user(user.id, user.username, user.first_name)
+    lang = db_user.get("language", "bn")
+    unit = db_user.get("temp_unit", "C")
+
+    upazilas = [l for l in _BD_LOCATIONS if l.get("type") == "upazila"]
+    if upazilas:
+        chosen = random.choice(upazilas)
+        city = find_bd_location(chosen["name_en"]) or chosen
+        await log_search(user.id, city["name"])
+        data = await get_weather_data(city["lat"], city["lon"], unit)
+        if data:
+            card = format_current_weather_card(data, city["display_name"], lang, unit)
+            markup = build_weather_buttons(city["lat"], city["lon"], city["name"], lang)
+            await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle native GPS location attachment."""
     loc = update.message.location

@@ -69,16 +69,40 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await update.message.reply_text(format_recommendations_message(rec, c["display_name"], lang), parse_mode="Markdown")
         return
 
+    # Random Upazila handler (picks any random upazila in Bangladesh)
+    if text in ["🎲 র‍্যান্ডম উপজেলা", "🎲 Random Upazila", "র‍্যান্ডম উপজেলা", "র্যান্ডম উপজেলা", "random"]:
+        import random
+        from services.bd_geocoder import _BD_LOCATIONS, find_bd_location
+        upazilas = [l for l in _BD_LOCATIONS if l.get("type") == "upazila"]
+        if upazilas:
+            chosen = random.choice(upazilas)
+            c = find_bd_location(chosen["name_en"]) or chosen
+            w = await get_weather_data(c["lat"], c["lon"], unit)
+            if w:
+                await update.message.reply_text(
+                    format_current_weather_card(w, c["display_name"], lang, unit),
+                    parse_mode="Markdown",
+                    reply_markup=build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
+                )
+        return
+
     # 2. Run NLP Intent Classification
     intent_data = classify_intent(text)
     intent = intent_data["intent"]
     target_city = intent_data.get("city") or default_city
 
+    # Signature greeting for all bot responses
+    signature_greeting = (
+        "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
+        if lang == "bn" else
+        "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
+    )
+
     # Terminology Explanation intent
     if intent == "explain":
         term = intent_data.get("term", "humidity")
         explanation = TERMINOLOGY_EXPLANATIONS.get(term, {}).get(lang, "ব্যাখ্যা পাওয়া যায়নি।")
-        await update.message.reply_text(explanation, parse_mode="Markdown")
+        await update.message.reply_text(signature_greeting + explanation, parse_mode="Markdown")
         return
 
     # Weather-specific intents: rain, umbrella, temp, outdoor, wind, aqi
@@ -119,7 +143,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                     f"☀️ No, low chance of rain in **{city['name']}** today ({rain_prob}%).\n"
                     f"Current weather: {emoji} {cond_text}, Temperature: {temp:.1f}°C."
                 )
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
         if intent == "umbrella":
@@ -129,7 +153,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 if lang == "bn" else
                 f"☂️ **{city['name']} Umbrella Update:**\n{rec['umbrella']}"
             )
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
         if intent == "temp":
@@ -140,7 +164,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"🌡️ In **{city['name']}**, temperature is {temp:.1f}°C (feels like {feels:.1f}°C).\n"
                 f"Today's high is {cur.get('today_max_temp'):.1f}°C and low is {cur.get('today_min_temp'):.1f}°C."
             )
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
         if intent == "outdoor":
@@ -152,7 +176,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"🏃 **{city['name']} Outdoor Advice:**\n{rec['outdoor']}\n\n"
                 f"Sky: {emoji} {cond_text} | Temp: {temp:.1f}°C"
             )
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
         if intent == "wind":
@@ -164,12 +188,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"💨 Wind speed in **{city['name']}** is {wind_spd:.1f} km/h.\n"
                 f"{'⚠️ Strong winds detected, take caution.' if wind_spd > 30 else 'Wind is calm and pleasant.'}"
             )
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
         if intent == "aqi":
             reply = format_air_quality_message(w_data, city["display_name"], lang)
-            await update.message.reply_text(reply, parse_mode="Markdown")
+            await update.message.reply_text(signature_greeting + reply, parse_mode="Markdown")
             return
 
     # Explicit general weather intent (e.g. "আজকে আবহাওয়া কেমন", "Dhaka weather", "তাড়াশ")

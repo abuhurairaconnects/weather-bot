@@ -26,7 +26,7 @@ from telegram.ext import (
 from config import BOT_TOKEN
 from database.db import init_db
 from handlers.common import start_command, help_command, about_command
-from handlers.weather_handler import weather_command, location_handler, weather_callback_dispatcher
+from handlers.weather_handler import weather_command, random_command, location_handler, weather_callback_dispatcher
 from handlers.forecast_handler import forecast_command, hourly_command, advice_command
 from handlers.conversation import handle_text_message
 
@@ -74,6 +74,7 @@ async def post_init(application):
     commands = [
         BotCommand("start", "বট শুরু করুন / Start the bot"),
         BotCommand("weather", "রিয়েল-টাইম আবহাওয়া / Real-time weather"),
+        BotCommand("random", "র‍্যান্ডম উপজেলা / Random upazila weather"),
         BotCommand("hourly", "২৪ ঘণ্টার পূর্বাভাস / 24-hour forecast"),
         BotCommand("forecast", "৭ দিনের পূর্বাভাস / 7-day forecast"),
         BotCommand("advice", "স্মার্ট পরামর্শ / Smart lifestyle advice"),
@@ -119,6 +120,7 @@ def main():
 
     # 2. Weather & Forecast Commands
     application.add_handler(CommandHandler("weather", weather_command))
+    application.add_handler(CommandHandler("random", random_command))
     application.add_handler(CommandHandler("forecast", forecast_command))
     application.add_handler(CommandHandler("hourly", hourly_command))
     application.add_handler(CommandHandler("advice", advice_command))

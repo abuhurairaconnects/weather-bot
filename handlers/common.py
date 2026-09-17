@@ -11,14 +11,16 @@ def get_main_keyboard(lang: str = "bn") -> ReplyKeyboardMarkup:
     if lang == "bn":
         keyboard = [
             [KeyboardButton("📍 আমার লাইভ লোকেশন শেয়ার করুন", request_location=True)],
-            ["🌦️ লাইভ আবহাওয়া", "📆 ২৪ ঘণ্টা পূর্বাভাস"],
-            ["📅 ৭ দিনের পূর্বাভাস", "🧠 স্মার্ট পরামর্শ"]
+            ["🌦️ লাইভ আবহাওয়া", "🎲 র‍্যান্ডম উপজেলা"],
+            ["📆 ২৪ ঘণ্টা পূর্বাভাস", "📅 ৭ দিনের পূর্বাভাস"],
+            ["🧠 স্মার্ট পরামর্শ"]
         ]
     else:
         keyboard = [
             [KeyboardButton("📍 Share Live Location", request_location=True)],
-            ["🌦️ Live Weather", "📆 24h Hourly Forecast"],
-            ["📅 7-Day Forecast", "🧠 Smart Advice"]
+            ["🌦️ Live Weather", "🎲 Random Upazila"],
+            ["📆 24h Hourly Forecast", "📅 7-Day Forecast"],
+            ["🧠 Smart Advice"]
         ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
