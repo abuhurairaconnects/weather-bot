@@ -12,7 +12,12 @@ from services.recommendations import generate_recommendations, format_recommenda
 from handlers.weather_handler import format_current_weather_card, build_weather_buttons
 from handlers.forecast_handler import format_hourly_message, format_daily_forecast_message, format_air_quality_message
 from handlers.common import get_main_keyboard
-from handlers.division_handler import show_divisions_menu, show_lightning_divisions_menu
+from handlers.division_handler import (
+    show_divisions_menu,
+    show_lightning_divisions_menu,
+    show_hourly_divisions_menu,
+    show_daily_divisions_menu
+)
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
 from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
@@ -74,22 +79,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # B. 24-Hour Forecast (২৪ ঘণ্টার পূর্বাভাস)
     if text in ["📆 ২৪ ঘণ্টার পূর্বাভাস", "📆 ২৪ ঘণ্টা পূর্বাভাস", "২৪ ঘণ্টার পূর্বাভাস", "২৪ ঘণ্টা পূর্বাভাস", "📆 24-Hour Forecast", "24-Hour Forecast", "24h"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                await safe_reply(update, format_hourly_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
+        await show_hourly_divisions_menu(update, context)
         return
 
     # C. 7-Day Forecast (৭ দিনের পূর্বাভাস)
     if text in ["📅 ৭ দিনের পূর্বাভাস", "৭ দিনের পূর্বাভাস", "📅 7-Day Forecast", "7-Day Forecast", "7d"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
+        await show_daily_divisions_menu(update, context)
         return
 
     # D. Lightning & Severe Storm Alert (বজ্রপাত সতর্কতা)

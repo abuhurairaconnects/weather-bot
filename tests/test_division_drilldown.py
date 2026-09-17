@@ -25,11 +25,20 @@ from handlers.division_handler import (
     build_lightning_divisions_keyboard,
     build_lightning_districts_keyboard,
     build_lightning_upazilas_keyboard,
-    build_upazila_lightning_buttons
+    build_upazila_lightning_buttons,
+    build_hourly_divisions_keyboard,
+    build_hourly_districts_keyboard,
+    build_hourly_upazilas_keyboard,
+    build_upazila_hourly_buttons,
+    build_daily_divisions_keyboard,
+    build_daily_districts_keyboard,
+    build_daily_upazilas_keyboard,
+    build_upazila_daily_buttons
 )
 from handlers.common import get_main_keyboard
 from services.weather_api import get_weather_data
 from handlers.weather_handler import format_current_weather_card, format_lightning_alert_card
+from handlers.forecast_handler import format_hourly_message, format_daily_forecast_message
 
 async def run_tests():
     print("========================================")
@@ -169,8 +178,100 @@ async def run_tests():
     assert "জরুরি জীবনরক্ষাকারী সতর্কতা" in l_card
     print("  ✅ Dedicated localized Lightning Alert Card verified for Barura, Cumilla!")
 
+    # 8. Test 24-Hour Forecast (Hourly) Drilldown Keyboards & Cards
+    print("\n[8/9] Testing 24-Hour Forecast (Hourly) Keyboards & Localized Card...")
+    # Hourly Division Keyboard
+    hdiv_kb = build_hourly_divisions_keyboard()
+    hdiv_buttons = [btn for row in hdiv_kb.inline_keyboard for btn in row]
+    assert len(hdiv_buttons) == 8, f"Expected 8 division buttons, got {len(hdiv_buttons)}"
+    for btn in hdiv_buttons:
+        assert btn.callback_data.startswith("hdiv:"), f"Invalid prefix: {btn.callback_data}"
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Hourly 8-division keyboard verified!")
+
+    # Hourly District Keyboard (Chattogram)
+    hdist_kb = build_hourly_districts_keyboard("Chattogram")
+    hdist_buttons = [btn for row in hdist_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data == "hdist:Cumilla" for b in hdist_buttons)
+    assert any(b.callback_data == "hback:div" for b in hdist_buttons)
+    for btn in hdist_buttons:
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Hourly district keyboard (Chattogram) verified with Cumilla & hback:div!")
+
+    # Hourly Upazila Keyboard (Cumilla)
+    hupz_kb = build_hourly_upazilas_keyboard("Cumilla", page=0)
+    hupz_buttons = [btn for row in hupz_kb.inline_keyboard for btn in row]
+    assert any("কুমিল্লা সদর" in b.text for b in hupz_buttons)
+    assert any(b.callback_data.startswith("hdist_p:") for b in hupz_buttons)
+    assert any(b.callback_data.startswith("hback:dist:") for b in hupz_buttons)
+    for btn in hupz_buttons:
+        if btn.callback_data != "noop":
+            assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Hourly upazila keyboard (Cumilla) verified with pagination & back button!")
+
+    # Hourly Action Buttons
+    h_act_kb = build_upazila_hourly_buttons(barura["lat"], barura["lon"], barura["name"], "Cumilla", "bn")
+    h_buttons = [btn for row in h_act_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data.startswith("href:") for b in h_buttons)
+    assert any(b.callback_data == "hback:upz:Cumilla" for b in h_buttons)
+    assert any(b.callback_data.startswith("fc:") for b in h_buttons)
+    assert any(b.callback_data.startswith("lref:") for b in h_buttons)
+    print("  ✅ Hourly action buttons (href, hback:upz, fc, lref) verified!")
+
+    # Localized 24-Hour Forecast Card
+    h_card = format_hourly_message(w, barura["display_name"], "bn", "C")
+    assert "২৪ ঘণ্টার" in h_card
+    assert "পূর্বাভাস" in h_card
+    print("  ✅ Dedicated localized 24-Hour Forecast Card verified for Barura, Cumilla!")
+
+    # 9. Test 7-Day Forecast (Daily) Drilldown Keyboards & Cards
+    print("\n[9/9] Testing 7-Day Forecast (Daily) Keyboards & Localized Card...")
+    # Daily Division Keyboard
+    ddiv_kb = build_daily_divisions_keyboard()
+    ddiv_buttons = [btn for row in ddiv_kb.inline_keyboard for btn in row]
+    assert len(ddiv_buttons) == 8, f"Expected 8 division buttons, got {len(ddiv_buttons)}"
+    for btn in ddiv_buttons:
+        assert btn.callback_data.startswith("ddiv:"), f"Invalid prefix: {btn.callback_data}"
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Daily 8-division keyboard verified!")
+
+    # Daily District Keyboard (Chattogram)
+    ddist_kb = build_daily_districts_keyboard("Chattogram")
+    ddist_buttons = [btn for row in ddist_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data == "ddist:Cumilla" for b in ddist_buttons)
+    assert any(b.callback_data == "dback:div" for b in ddist_buttons)
+    for btn in ddist_buttons:
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Daily district keyboard (Chattogram) verified with Cumilla & dback:div!")
+
+    # Daily Upazila Keyboard (Cumilla)
+    dupz_kb = build_daily_upazilas_keyboard("Cumilla", page=0)
+    dupz_buttons = [btn for row in dupz_kb.inline_keyboard for btn in row]
+    assert any("কুমিল্লা সদর" in b.text for b in dupz_buttons)
+    assert any(b.callback_data.startswith("ddist_p:") for b in dupz_buttons)
+    assert any(b.callback_data.startswith("dback:dist:") for b in dupz_buttons)
+    for btn in dupz_buttons:
+        if btn.callback_data != "noop":
+            assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Daily upazila keyboard (Cumilla) verified with pagination & back button!")
+
+    # Daily Action Buttons
+    d_act_kb = build_upazila_daily_buttons(barura["lat"], barura["lon"], barura["name"], "Cumilla", "bn")
+    d_buttons = [btn for row in d_act_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data.startswith("dref:") for b in d_buttons)
+    assert any(b.callback_data == "dback:upz:Cumilla" for b in d_buttons)
+    assert any(b.callback_data.startswith("hr:") for b in d_buttons)
+    assert any(b.callback_data.startswith("lref:") for b in d_buttons)
+    print("  ✅ Daily action buttons (dref, dback:upz, hr, lref) verified!")
+
+    # Localized 7-Day Forecast Card
+    d_card = format_daily_forecast_message(w, barura["display_name"], "bn", "C")
+    assert "৭ দিনের" in d_card
+    assert "পূর্বাভাস" in d_card
+    print("  ✅ Dedicated localized 7-Day Forecast Card verified for Barura, Cumilla!")
+
     print("\n========================================")
-    print("🎉 ALL DIVISION & LIGHTNING DRILLDOWN TESTS PASSED! (100% SUCCESS)")
+    print("🎉 ALL 4 MAIN BUTTON DRILLDOWN TESTS PASSED! (100% SUCCESS)")
     print("========================================")
 
 if __name__ == "__main__":

@@ -164,7 +164,11 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     unit = db_user.get("temp_unit", "C")
 
     args = context.args
-    query = " ".join(args).strip() if args else (db_user.get("default_city") or "Dhaka")
+    query = " ".join(args).strip() if args else ""
+    if not query:
+        from handlers.division_handler import show_daily_divisions_menu
+        await show_daily_divisions_menu(update, context)
+        return
 
     cities = await search_city(query)
     if not cities:
@@ -193,7 +197,11 @@ async def hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     unit = db_user.get("temp_unit", "C")
 
     args = context.args
-    query = " ".join(args).strip() if args else (db_user.get("default_city") or "Dhaka")
+    query = " ".join(args).strip() if args else ""
+    if not query:
+        from handlers.division_handler import show_hourly_divisions_menu
+        await show_hourly_divisions_menu(update, context)
+        return
 
     cities = await search_city(query)
     if not cities:
