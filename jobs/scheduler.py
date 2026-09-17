@@ -5,7 +5,7 @@ Monitors rain, severe weather conditions, and triggers daily morning/evening bri
 from datetime import datetime, timezone, timedelta
 from typing import Dict
 from telegram.ext import ContextTypes
-from database.db import get_all_subscribers_for_alerts
+from database.db import get_all_subscribers_for_alerts, update_user_setting
 from services.weather_api import get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_aqi_category
 
@@ -75,6 +75,8 @@ async def check_rain_and_severe_alerts(context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_message(chat_id=user_id, text=alert_msg, parse_mode="Markdown")
                 except Exception as e:
+                    if "blocked" in str(e).lower() or "forbidden" in str(e).lower():
+                        await update_user_setting(user_id, "is_blocked", 1)
                     print(f"Failed to send rain alert to {user_id}: {e}")
 
         # 2. Severe Weather Alert (Thunderstorm, Heavy Storm, Extreme Heat, Extreme AQI)
@@ -124,6 +126,8 @@ async def check_rain_and_severe_alerts(context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_message(chat_id=user_id, text=sev_msg, parse_mode="Markdown")
                 except Exception as e:
+                    if "blocked" in str(e).lower() or "forbidden" in str(e).lower():
+                        await update_user_setting(user_id, "is_blocked", 1)
                     print(f"Failed to send severe alert to {user_id}: {e}")
 
 async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
@@ -192,6 +196,8 @@ async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
                     try:
                         await context.bot.send_message(chat_id=user_id, text=m_msg, parse_mode="Markdown")
                     except Exception as e:
+                        if "blocked" in str(e).lower() or "forbidden" in str(e).lower():
+                            await update_user_setting(user_id, "is_blocked", 1)
                         print(f"Failed morning report to {user_id}: {e}")
 
         # Evening Report (Trigger between 7 PM and 9 PM)
@@ -233,6 +239,8 @@ async def check_daily_reports(context: ContextTypes.DEFAULT_TYPE):
                     try:
                         await context.bot.send_message(chat_id=user_id, text=e_msg, parse_mode="Markdown")
                     except Exception as e:
+                        if "blocked" in str(e).lower() or "forbidden" in str(e).lower():
+                            await update_user_setting(user_id, "is_blocked", 1)
                         print(f"Failed evening report to {user_id}: {e}")
 
 def setup_scheduler(application):

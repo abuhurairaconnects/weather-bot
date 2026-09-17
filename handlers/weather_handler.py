@@ -12,8 +12,10 @@ from services.agriculture import get_agriculture_advice
 from services.charts import generate_weather_chart
 
 def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "bn") -> InlineKeyboardMarkup:
-    """Build inline keyboard for a specific location."""
-    c_short = city_name.split(",")[0].strip()[:15]
+    """Build inline keyboard for a specific location safely under 64 bytes."""
+    c_clean = city_name.split(",")[0].strip()
+    # Ensure byte length never exceeds Telegram's 64-byte callback_data limit
+    c_short = c_clean.encode("utf-8")[:18].decode("utf-8", errors="ignore")
     if lang == "bn":
         keyboard = [
             [

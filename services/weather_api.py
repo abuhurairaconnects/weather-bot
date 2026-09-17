@@ -115,17 +115,33 @@ async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Opti
     daily = w_data.get("daily", {})
     aqi_cur = aqi_data.get("current", {})
 
-    # Extract current metrics
-    temp = current.get("temperature_2m")
-    feels_like = current.get("apparent_temperature")
-    humidity = current.get("relative_humidity_2m")
-    wmo_code = current.get("weather_code", 0)
-    wind_speed = current.get("wind_speed_10m")
-    wind_deg = current.get("wind_direction_10m")
-    cloud_cover = current.get("cloud_cover")
-    pressure = current.get("pressure_msl") or current.get("surface_pressure")
-    dew_point = current.get("dew_point_2m")
-    rainfall_amount = current.get("precipitation") or current.get("rain") or 0.0
+    # Extract current metrics with safe defaults
+    raw_temp = current.get("temperature_2m")
+    temp = float(raw_temp) if raw_temp is not None else 25.0
+    
+    raw_feels = current.get("apparent_temperature")
+    feels_like = float(raw_feels) if raw_feels is not None else temp
+    
+    raw_hum = current.get("relative_humidity_2m")
+    humidity = int(raw_hum) if raw_hum is not None else 50
+    
+    wmo_code = int(current.get("weather_code", 0) or 0)
+    
+    raw_wind = current.get("wind_speed_10m")
+    wind_speed = float(raw_wind) if raw_wind is not None else 0.0
+    
+    raw_deg = current.get("wind_direction_10m")
+    wind_deg = float(raw_deg) if raw_deg is not None else 0.0
+    
+    raw_clouds = current.get("cloud_cover")
+    cloud_cover = int(raw_clouds) if raw_clouds is not None else 0
+    
+    pressure = float(current.get("pressure_msl") or current.get("surface_pressure") or 1013.0)
+    
+    raw_dew = current.get("dew_point_2m")
+    dew_point = float(raw_dew) if raw_dew is not None else temp
+    
+    rainfall_amount = float(current.get("precipitation") or current.get("rain") or 0.0)
 
     # Hourly rain probability for current or upcoming hours
     hourly_times = hourly.get("time", [])

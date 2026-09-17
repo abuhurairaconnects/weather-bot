@@ -9,6 +9,8 @@ from config import DB_PATH, DEFAULT_LANGUAGE, DEFAULT_TEMP_UNIT
 async def init_db():
     """Initialize database tables."""
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA journal_mode=WAL;")
+        await db.execute("PRAGMA busy_timeout=5000;")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
