@@ -95,7 +95,8 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
 
     if lang == "bn":
         return (
-            f"🌦️ **আবহাওয়া পরিস্থিতি — {city_name}**\n"
+            "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
+            f"🌦️ **রিয়েল-টাইম আবহাওয়া পরিস্থিতি — {city_name}**\n"
             f"──────────────────────\n\n"
             f"🌡️ **তাপমাত্রা ও অনুভূতি:**\n"
             f"• বর্তমান তাপমাত্রা: **{temp_str}** (অনুভূত: {feels_str})\n"
@@ -114,12 +115,12 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
             f"• ইউভি সূচক: {uv:.1f} ({uv_cat} {uv_emoji})\n"
             f"• সূর্যোদয়: {sunrise} | সূর্যাস্ত: {sunset}\n"
             f"• চন্দ্রকলা: {moon_emoji} {moon_name} ({moon_illum})\n\n"
-            f"──────────────────────\n"
-            f"💡 *নিচের বাটন চেপে চার্ট, পূর্বাভাস ও পরামর্শ দেখুন:*"
+            f"💡 *নিচের বাটনগুলো চেপে ঘণ্টাওয়ারী, ৭ দিনের পূর্বাভাস বা গ্রাফ দেখুন।* "
         )
     else:
         return (
-            f"🌦️ **Weather Overview — {city_name}**\n"
+            "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
+            f"🌦️ **Real-Time Weather Overview — {city_name}**\n"
             f"──────────────────────\n\n"
             f"🌡️ **Temperature & Conditions:**\n"
             f"• Current Temp: **{temp_str}** (Feels like: {feels_str})\n"

@@ -34,24 +34,22 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if lang == "bn":
         msg = (
-            f"👋 **আসসালামু আলাইকুম, {user.first_name}!**\n\n"
-            "আমি আপনার **Personal Weather Assistant Bot** 🌦️\n"
-            "এখানে আপনি যেকোনো স্থান বা শহরের বিস্তারিত আবহাওয়া, সঠিক পূর্বাভাস, লাইভ সতর্কতা এবং প্রয়োজনীয় পরামর্শ পাবেন।\n\n"
+            "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?** 🌦️\n\n"
+            "আমি আপনাকে যেকোনো এলাকার রিয়েল-টাইম আবহাওয়া ও পূর্বাভাস জানাতে প্রস্তুত। এছাড়াও সাধারণ জ্ঞান, বিজ্ঞান, আড্ডা বা যেকোনো বিষয়ে আপনার প্রশ্নের উত্তর দিতে পারি।\n\n"
             "📌 **যেভাবে ব্যবহার করবেন:**\n"
-            "• সরাসরি যেকোনো শহরের নাম লিখুন (যেমন: `Dhaka`, `Chittagong`, `London`)\n"
+            "• সরাসরি যেকোনো এলাকার নাম লিখুন (যেমন: `মিরপুর`, `কুষ্টিয়া`, `ফেনী`, `Dhaka`, `London`)\n"
             "• নিচের বাটন চেপে আপনার **লাইভ লোকেশন** শেয়ার করুন\n"
-            "• অথবা যেকোনো সাধারণ প্রশ্ন করুন (যেমন: *\"আজ কি ঢাকায় বৃষ্টি হবে?\"* বা *\"ছাতা লাগবে কি?\"*)\n\n"
+            "• অথবা যেকোনো প্রশ্ন লিখুন (যেমন: *\"কুষ্টিয়ার রিয়েল-টাইম ওয়েদার কেমন?\"*, *\"আজ কি বৃষ্টি হবে?\"*, *\"চাঁদ কেন আলো দেয়?\"*)\n\n"
             "💡 সব কমান্ড দেখতে /help চাপুন।"
         )
     else:
         msg = (
-            f"👋 **Hello, {user.first_name}!**\n\n"
-            "I am your **Personal Weather Assistant Bot** 🌦️\n"
-            "I provide hyper-local weather conditions, forecasts, air quality, smart life recommendations, and timely alerts.\n\n"
+            "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?** 🌦️\n\n"
+            "I provide hyper-local real-time weather conditions, forecasts, air quality, and can answer any general question you have.\n\n"
             "📌 **Quick Guide:**\n"
-            "• Type any city name (e.g., `Dhaka`, `London`, `Tokyo`)\n"
+            "• Type any area or city name (e.g., `Mirpur`, `Kushtia`, `Dhaka`, `London`)\n"
             "• Tap the button below to **Share Live Location**\n"
-            "• Or ask natural questions like *\"Will it rain today?\"* or *\"Do I need an umbrella?\"*\n\n"
+            "• Or ask natural questions like *\"Will it rain today?\"* or *\"Tell me a fun fact\"*\n\n"
             "💡 Type /help to see all commands."
         )
 

@@ -21,25 +21,77 @@ def format_temp(celsius: Optional[float], unit: str = "C") -> str:
         return f"{c_to_f(celsius):.1f}°F"
     return f"{celsius:.1f}°C"
 
+async def resolve_area_with_ai(bengali_name: str) -> Optional[str]:
+    """Uses Gemini Flash Lite to resolve any obscure village/upazila/area to its standard English name."""
+    from config import GEMINI_API_KEY, GEMINI_API_BASE_URL
+    if not GEMINI_API_KEY:
+        return None
+    clean = bengali_name.strip()
+    # If purely ascii and looks like gibberish or has underscores, skip AI
+    if "_" in clean or len(clean) > 25 and not any(ord(c) > 127 for c in clean):
+        return None
+    url = f"{GEMINI_API_BASE_URL}/gemini-flash-lite-latest:generateContent?key={GEMINI_API_KEY}"
+    prompt = f'What is the single standard English place keyword for "{clean}" in Bangladesh or worldwide? If this is fake, gibberish, or not a real geographical place, reply ONLY with "UNKNOWN". Otherwise return ONLY the single place name keyword in English without commas, punctuation, or country name (e.g. "Srimangal" or "Bheramara" or "Kushtia").'
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            r = await client.post(url, json=payload)
+            if r.status_code == 200:
+                candidates = r.json().get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        word = parts[0]["text"].strip()
+                        resolved = word.split(",")[0].replace('"', '').strip()
+                        if resolved.upper() in ["UNKNOWN", "NONE", "NOT FOUND"]:
+                            return None
+                        return resolved
+    except Exception:
+        pass
+    return None
+
 async def search_city(query: str) -> List[Dict[str, Any]]:
     """
     Search for locations worldwide matching query.
-    Returns list of dicts with name, country, admin1 (division/state), lat, lon, timezone.
+    Supports Bengali place names, 64 districts, and AI fallback resolution.
     """
-    params = {
-        "name": query.strip(),
-        "count": 5,
-        "language": "en",
-        "format": "json"
-    }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
+    clean_q = query.strip()
+    
+    # 1. Check alias dictionary
+    try:
+        from services.nlp_parser import COMMON_CITY_ALIASES, normalize_bengali_name
+        lower_q = clean_q.lower()
+        if lower_q in COMMON_CITY_ALIASES:
+            clean_q = COMMON_CITY_ALIASES[lower_q]
+        else:
+            norm_q = normalize_bengali_name(lower_q)
+            if norm_q in COMMON_CITY_ALIASES:
+                clean_q = COMMON_CITY_ALIASES[norm_q]
+    except Exception:
+        pass
+
+    async def _fetch_from_open_meteo(name_to_search: str) -> List[Dict[str, Any]]:
+        params = {
+            "name": name_to_search,
+            "count": 6,
+            "language": "en",
+            "format": "json"
+        }
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(OPEN_METEO_GEOCODING_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
             results = data.get("results", [])
+            if not results:
+                return []
+            
+            # Prioritize Bangladesh locations
+            bd_res = [r for r in results if r.get("country") == "Bangladesh"]
+            other_res = [r for r in results if r.get("country") != "Bangladesh"]
+            sorted_results = bd_res + other_res
+
             output = []
-            for item in results:
+            for item in sorted_results:
                 admin = item.get("admin1") or ""
                 country = item.get("country") or ""
                 loc_name = item.get("name")
@@ -48,7 +100,7 @@ async def search_city(query: str) -> List[Dict[str, Any]]:
                     display_parts.append(admin)
                 if country:
                     display_parts.append(country)
-                
+
                 output.append({
                     "name": loc_name,
                     "display_name": ", ".join(display_parts),
@@ -58,9 +110,22 @@ async def search_city(query: str) -> List[Dict[str, Any]]:
                     "timezone": item.get("timezone", "UTC")
                 })
             return output
-        except Exception as e:
-            print(f"Geocoding error for '{query}': {e}")
-            return []
+
+    try:
+        results = await _fetch_from_open_meteo(clean_q)
+        if results:
+            return results
+        
+        # 2. If no results and query may be Bengali/obscure, resolve with AI
+        ai_resolved = await resolve_area_with_ai(query.strip())
+        if ai_resolved and ai_resolved.lower() != clean_q.lower():
+            results = await _fetch_from_open_meteo(ai_resolved)
+            if results:
+                return results
+    except Exception as e:
+        print(f"Geocoding error for '{query}': {e}")
+
+    return []
 
 async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Optional[Dict[str, Any]]:
     """

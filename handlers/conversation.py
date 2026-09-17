@@ -243,18 +243,16 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     ]
     is_conversational = any(q in text.lower() for q in question_triggers) or len(words) > 3
 
-    if not is_conversational and len(text) < 30:
+    if not is_conversational and len(text) < 35:
         found_cities = await search_city(text.strip())
         if found_cities:
             c0 = found_cities[0]
-            clean_input = text.strip().lower()
-            if clean_input in c0["name"].lower() or clean_input in c0.get("display_name", "").lower():
-                w_data = await get_weather_data(c0["lat"], c0["lon"], unit)
-                if w_data:
-                    card = format_current_weather_card(w_data, c0["display_name"], lang, unit)
-                    markup = build_weather_buttons(c0["lat"], c0["lon"], c0["name"], lang)
-                    await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
-                    return
+            w_data = await get_weather_data(c0["lat"], c0["lon"], unit)
+            if w_data:
+                card = format_current_weather_card(w_data, c0["display_name"], lang, unit)
+                markup = build_weather_buttons(c0["lat"], c0["lon"], c0["name"], lang)
+                await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+                return
 
     # 3. Everything else: General Knowledge, Q&A, Chit-chat -> Google Gemini AI!
     try:
