@@ -22,7 +22,6 @@ def format_daily_forecast_message(weather_data: dict, city_name: str, lang: str 
 
     lines = []
     if lang == "bn":
-        lines.append("👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n")
         lines.append(f"📅 **৭ দিনের আবহাওয়ার পূর্বাভাস — {city_name}**")
         lines.append("──────────────────────\n")
         for i in range(len(times)):
@@ -43,7 +42,6 @@ def format_daily_forecast_message(weather_data: dict, city_name: str, lang: str 
         lines.append("──────────────────────")
         lines.append("💡 *প্রতিদিনের সম্ভাব্য তাপমাত্রা সীমা ও বৃষ্টির পূর্বাভাস।*")
     else:
-        lines.append("👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n")
         lines.append(f"📅 **7-Day Weather Forecast — {city_name}**")
         lines.append("──────────────────────\n")
         for i in range(len(times)):
@@ -77,7 +75,6 @@ def format_hourly_message(weather_data: dict, city_name: str, lang: str = "bn", 
 
     lines = []
     if lang == "bn":
-        lines.append("👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n")
         lines.append(f"📆 **২৪ ঘণ্টার প্রতি ঘণ্টার পূর্বাভাস — {city_name}**")
         lines.append("──────────────────────\n")
         for i in range(0, len(times), 3):
@@ -91,7 +88,6 @@ def format_hourly_message(weather_data: dict, city_name: str, lang: str = "bn", 
         lines.append("\n──────────────────────")
         lines.append("💡 *পরবর্তী ২৪ ঘণ্টার প্রতি ঘণ্টার তাপমাত্রা ও বৃষ্টির পূর্বাভাস।*")
     else:
-        lines.append("👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n")
         lines.append(f"📆 **24-Hour Forecast (Every 3h) — {city_name}**")
         lines.append("──────────────────────\n")
         for i in range(0, len(times), 3):

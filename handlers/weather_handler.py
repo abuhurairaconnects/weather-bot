@@ -77,7 +77,6 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
 
     if lang == "bn":
         return (
-            "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
             f"🌦️ **রিয়েল-টাইম আবহাওয়া পরিস্থিতি — {city_name}**\n"
             f"──────────────────────\n\n"
             f"🌡️ **তাপমাত্রা ও অনুভূতি:**\n"
@@ -101,7 +100,6 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
         )
     else:
         return (
-            "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
             f"🌦️ **Real-Time Weather Overview — {city_name}**\n"
             f"──────────────────────\n\n"
             f"🌡️ **Temperature & Conditions:**\n"

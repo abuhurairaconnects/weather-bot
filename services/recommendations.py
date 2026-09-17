@@ -110,7 +110,6 @@ def format_recommendations_message(rec: Dict[str, Any], city_name: str, lang: st
     """Format smart recommendations into clean, bulleted, and spacious Telegram text."""
     if lang == "bn":
         return (
-            "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
             f"🧠 **স্মার্ট আবহাওয়া পরামর্শ — {city_name}**\n"
             f"──────────────────────\n\n"
             f"☂️ **ছাতা ব্যবহার:**\n"
@@ -132,7 +131,6 @@ def format_recommendations_message(rec: Dict[str, Any], city_name: str, lang: st
         )
     else:
         return (
-            "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
             f"🧠 **Smart Weather Advice — {city_name}**\n"
             f"──────────────────────\n\n"
             f"☂️ **Umbrella Guidance:**\n"

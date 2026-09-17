@@ -91,8 +91,10 @@ async def run_tests():
     # 6. Real-Time Weather Card & Buttons
     print("\n[6/7] Testing Weather Card & Streamlined Inline Buttons...")
     card = format_current_weather_card(w_dhaka, c_dhaka["display_name"], lang="bn", unit="C")
-    assert "আবু হুরাইরার AI অ্যাসিস্ট্যান্ট" in card
     assert "রিয়েল-টাইম আবহাওয়া" in card
+    from handlers.conversation import get_smart_signature_greeting
+    greeting = get_smart_signature_greeting(888777, "bn")
+    assert "আবু হুরাইরার AI অ্যাসিস্ট্যান্ট" in greeting
 
     markup = build_weather_buttons(c_dhaka["lat"], c_dhaka["lon"], c_dhaka["name"], lang="bn")
     button_texts = [btn.text for row in markup.inline_keyboard for btn in row]

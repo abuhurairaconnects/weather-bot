@@ -22,7 +22,7 @@ def format_temp(celsius: Optional[float], unit: str = "C") -> str:
     return f"{celsius:.1f}°C"
 
 async def resolve_area_with_ai(bengali_name: str) -> Optional[str]:
-    """Uses Gemini Flash Lite to resolve any obscure village/upazila/area to its standard English name."""
+    """Uses Gemini Flash Lite to resolve any obscure village/upazila/area in Bangladesh to its standard English name."""
     from config import GEMINI_API_KEY, GEMINI_API_BASE_URL
     if not GEMINI_API_KEY:
         return None
@@ -31,7 +31,12 @@ async def resolve_area_with_ai(bengali_name: str) -> Optional[str]:
     if "_" in clean or len(clean) > 25 and not any(ord(c) > 127 for c in clean):
         return None
     url = f"{GEMINI_API_BASE_URL}/gemini-flash-lite-latest:generateContent?key={GEMINI_API_KEY}"
-    prompt = f'What is the single standard English place keyword for "{clean}" in Bangladesh or worldwide? If this is fake, gibberish, or not a real geographical place, reply ONLY with "UNKNOWN". Otherwise return ONLY the single place name keyword in English without commas, punctuation, or country name (e.g. "Srimangal" or "Bheramara" or "Kushtia").'
+    prompt = (
+        f'The user is searching for a location in Bangladesh: "{clean}". '
+        'What is the single standard English place keyword for this upazila, district, thana, union, or village in Bangladesh? '
+        'If this location is outside Bangladesh, fake, gibberish, or not a real geographical place in Bangladesh, reply ONLY with "UNKNOWN". '
+        'Otherwise return ONLY the single place name keyword in English without commas, punctuation, or country name (e.g. "Srimangal" or "Bheramara" or "Barura").'
+    )
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -52,10 +57,11 @@ async def resolve_area_with_ai(bengali_name: str) -> Optional[str]:
 
 async def search_city(query: str) -> List[Dict[str, Any]]:
     """
-    Search for locations worldwide matching query.
+    Search strictly for locations within Bangladesh matching query.
     1. First checks local Bangladesh administrative database (all 64 districts & 495+ upazilas).
-    2. Falls back to Open-Meteo geocoding for international locations.
-    3. Falls back to AI resolution.
+    2. Checks alias dictionary.
+    3. Falls back to Open-Meteo geocoding STRICTLY filtered to Bangladesh bounds.
+    4. Falls back to AI resolution for obscure Bangladesh villages/unions.
     """
     clean_q = query.strip()
     
@@ -78,13 +84,18 @@ async def search_city(query: str) -> List[Dict[str, Any]]:
             norm_q = normalize_bengali_name(lower_q)
             if norm_q in COMMON_CITY_ALIASES:
                 clean_q = COMMON_CITY_ALIASES[norm_q]
+        # Re-check BD geocoder with resolved alias
+        from services.bd_geocoder import find_bd_location
+        bd_loc_alias = find_bd_location(clean_q)
+        if bd_loc_alias:
+            return [bd_loc_alias]
     except Exception:
         pass
 
     async def _fetch_from_open_meteo(name_to_search: str) -> List[Dict[str, Any]]:
         params = {
             "name": name_to_search,
-            "count": 6,
+            "count": 10,
             "language": "en",
             "format": "json"
         }
@@ -96,29 +107,42 @@ async def search_city(query: str) -> List[Dict[str, Any]]:
             if not results:
                 return []
             
-            # Prioritize Bangladesh locations
-            bd_res = [r for r in results if r.get("country") == "Bangladesh"]
-            other_res = [r for r in results if r.get("country") != "Bangladesh"]
-            sorted_results = bd_res + other_res
+            # STRICTLY filter only Bangladesh locations (Lat: 20.5-26.7, Lon: 88.0-92.7)
+            bd_res = []
+            for r in results:
+                country = r.get("country", "")
+                country_code = r.get("country_code", "")
+                try:
+                    lat = float(r.get("latitude", 0))
+                    lon = float(r.get("longitude", 0))
+                except Exception:
+                    continue
+
+                is_bd = (country == "Bangladesh" or country_code.upper() == "BD" or 
+                         (20.5 <= lat <= 26.7 and 88.0 <= lon <= 92.7))
+                if is_bd:
+                    bd_res.append(r)
+
+            if not bd_res:
+                return []
 
             output = []
-            for item in sorted_results:
+            for item in bd_res:
                 admin = item.get("admin1") or ""
-                country = item.get("country") or ""
+                country = item.get("country") or "Bangladesh"
                 loc_name = item.get("name")
                 display_parts = [loc_name]
                 if admin and admin != loc_name:
                     display_parts.append(admin)
-                if country:
-                    display_parts.append(country)
+                display_parts.append("Bangladesh")
 
                 output.append({
                     "name": loc_name,
                     "display_name": ", ".join(display_parts),
                     "lat": item.get("latitude"),
                     "lon": item.get("longitude"),
-                    "country": country,
-                    "timezone": item.get("timezone", "UTC")
+                    "country": "Bangladesh",
+                    "timezone": item.get("timezone", "Asia/Dhaka")
                 })
             return output
 

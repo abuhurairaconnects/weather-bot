@@ -14,6 +14,27 @@ from handlers.forecast_handler import format_hourly_message, format_daily_foreca
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
 
+import time
+from typing import Dict
+
+# Smart Session Greeting: track last active timestamp per user_id
+_USER_LAST_ACTIVE: Dict[int, float] = {}
+GREETING_COOLDOWN_SECONDS = 1200  # 20 minutes cooldown before showing intro again
+
+def get_smart_signature_greeting(user_id: int, lang: str = "bn") -> str:
+    """Returns the Abu Huraira AI greeting ONLY on first interaction or after 20+ mins of inactivity."""
+    now = time.time()
+    last_time = _USER_LAST_ACTIVE.get(user_id, 0.0)
+    _USER_LAST_ACTIVE[user_id] = now
+
+    if now - last_time > GREETING_COOLDOWN_SECONDS:
+        return (
+            "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
+            if lang == "bn" else
+            "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
+        )
+    return ""
+
 async def safe_reply(update: Update, text: str, reply_markup=None):
     """Safely reply with Markdown, falling back to plain text if entity parsing fails."""
     try:
@@ -35,6 +56,9 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     unit = db_user.get("temp_unit", "C")
     default_city = db_user.get("default_city") or "Dhaka"
 
+    # Smart signature greeting: only non-empty on first message or after 20+ minutes of idle time
+    signature_greeting = get_smart_signature_greeting(user.id, lang)
+
     # 1. Handle Main Keyboard Button Clicks
     if text in ["🌦️ লাইভ আবহাওয়া", "🌦️ Live Weather", "🌦️ ঢাকা আবহাওয়া", "🌦️ Dhaka Weather"]:
         cities = await search_city(default_city)
@@ -42,11 +66,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                await update.message.reply_text(
-                    format_current_weather_card(w, c["display_name"], lang, unit),
-                    parse_mode="Markdown",
-                    reply_markup=build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
-                )
+                card = format_current_weather_card(w, c["display_name"], lang, unit)
+                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
+                msg = signature_greeting + card if signature_greeting else card
+                await safe_reply(update, msg, reply_markup=markup)
         return
 
     if text in ["📆 ২৪ ঘণ্টা পূর্বাভাস", "📆 ২৪ ঘণ্টার পূর্বাভাস", "📆 24h Hourly Forecast", "📆 24h Forecast"]:
@@ -55,7 +78,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                await update.message.reply_text(format_hourly_message(w, c["display_name"], lang, unit), parse_mode="Markdown")
+                await safe_reply(update, format_hourly_message(w, c["display_name"], lang, unit))
         return
 
     if text in ["📅 ৭ দিনের পূর্বাভাস", "📅 7-Day Forecast"]:
@@ -64,7 +87,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                await update.message.reply_text(format_daily_forecast_message(w, c["display_name"], lang, unit), parse_mode="Markdown")
+                await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit))
         return
 
     if text in ["🧠 স্মার্ট পরামর্শ", "🧠 Smart Advice"]:
@@ -87,11 +110,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             c = find_bd_location(chosen["name_en"]) or chosen
             w = await get_weather_data(c["lat"], c["lon"], unit)
             if w:
-                await safe_reply(
-                    update,
-                    format_current_weather_card(w, c["display_name"], lang, unit),
-                    reply_markup=build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
-                )
+                card = format_current_weather_card(w, c["display_name"], lang, unit)
+                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
+                msg = signature_greeting + card if signature_greeting else card
+                await safe_reply(update, msg, reply_markup=markup)
         return
 
     # Direct Bangladesh Location Check (instant 0ms response for any of 64 districts & 495+ upazilas)
@@ -102,7 +124,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         if w_data:
             card = format_current_weather_card(w_data, bd_loc["display_name"], lang, unit)
             markup = build_weather_buttons(bd_loc["lat"], bd_loc["lon"], bd_loc["name"], lang)
-            await safe_reply(update, card, reply_markup=markup)
+            msg = signature_greeting + card if signature_greeting else card
+            await safe_reply(update, msg, reply_markup=markup)
             return
 
     # 2. Run NLP Intent Classification
@@ -110,18 +133,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     intent = intent_data["intent"]
     target_city = intent_data.get("city") or default_city
 
-    # Signature greeting for all bot responses
-    signature_greeting = (
-        "👋 **আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?**\n\n"
-        if lang == "bn" else
-        "👋 **Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?**\n\n"
-    )
-
     # Terminology Explanation intent
     if intent == "explain":
         term = intent_data.get("term", "humidity")
         explanation = TERMINOLOGY_EXPLANATIONS.get(term, {}).get(lang, "ব্যাখ্যা পাওয়া যায়নি।")
-        await safe_reply(update, signature_greeting + explanation)
+        msg = signature_greeting + explanation if signature_greeting else explanation
+        await safe_reply(update, msg)
         return
 
     # Weather-specific intents: rain, umbrella, temp, outdoor, wind, aqi
@@ -129,7 +146,16 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         eff_city = target_city or default_city
         cities = await search_city(eff_city)
         if not cities:
-            await safe_reply(update, f"❌ '{eff_city}' শহর খুঁজে পাওয়া যায়নি।")
+            await safe_reply(
+                update,
+                f"⚠️ দুঃখিত, '{eff_city}' খুঁজে পাওয়া যায়নি।\n"
+                "এই বটটি শুধুমাত্র বাংলাদেশের সকল জেলা ও উপজেলার আবহাওয়া তথ্যের জন্য নিবেদিত। "
+                "বাংলাদেশের বাইরের কোনো স্থান এখানে প্রদান করা হয় না। অনুগ্রহ করে বাংলাদেশের কোনো জেলা বা উপজেলার নাম লিখুন।"
+                if lang == "bn" else
+                f"⚠️ Sorry, '{eff_city}' was not found.\n"
+                "This bot is dedicated strictly to all districts and upazilas in Bangladesh. "
+                "Foreign locations are not supported. Please enter a location within Bangladesh."
+            )
             return
 
         city = cities[0]
@@ -162,7 +188,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                     f"☀️ No, low chance of rain in **{city['name']}** today ({rain_prob}%).\n"
                     f"Current weather: {emoji} {cond_text}, Temperature: {temp:.1f}°C."
                 )
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
         if intent == "umbrella":
@@ -172,7 +198,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 if lang == "bn" else
                 f"☂️ **{city['name']} Umbrella Update:**\n{rec['umbrella']}"
             )
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
         if intent == "temp":
@@ -183,7 +209,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"🌡️ In **{city['name']}**, temperature is {temp:.1f}°C (feels like {feels:.1f}°C).\n"
                 f"Today's high is {cur.get('today_max_temp'):.1f}°C and low is {cur.get('today_min_temp'):.1f}°C."
             )
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
         if intent == "outdoor":
@@ -195,7 +221,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"🏃 **{city['name']} Outdoor Advice:**\n{rec['outdoor']}\n\n"
                 f"Sky: {emoji} {cond_text} | Temp: {temp:.1f}°C"
             )
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
         if intent == "wind":
@@ -207,12 +233,12 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"💨 Wind speed in **{city['name']}** is {wind_spd:.1f} km/h.\n"
                 f"{'⚠️ Strong winds detected, take caution.' if wind_spd > 30 else 'Wind is calm and pleasant.'}"
             )
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
         if intent == "aqi":
             reply = format_air_quality_message(w_data, city["display_name"], lang)
-            await safe_reply(update, signature_greeting + reply)
+            await safe_reply(update, signature_greeting + reply if signature_greeting else reply)
             return
 
     # Explicit general weather intent (e.g. "আজকে আবহাওয়া কেমন", "Dhaka weather", "তাড়াশ")
@@ -225,8 +251,21 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             if w_data:
                 card = format_current_weather_card(w_data, city["display_name"], lang, unit)
                 markup = build_weather_buttons(city["lat"], city["lon"], city["name"], lang)
-                await safe_reply(update, card, reply_markup=markup)
+                msg = signature_greeting + card if signature_greeting else card
+                await safe_reply(update, msg, reply_markup=markup)
                 return
+        else:
+            await safe_reply(
+                update,
+                f"⚠️ দুঃখিত, '{eff_city}' খুঁজে পাওয়া যায়নি।\n"
+                "এই বটটি শুধুমাত্র বাংলাদেশের সকল জেলা ও উপজেলার আবহাওয়া সেবার জন্য প্রস্তুত। "
+                "বাংলাদেশের বাইরের কোনো স্থান এখানে অন্তর্ভুক্ত নয়। অনুগ্রহ করে বাংলাদেশের কোনো জেলা বা উপজেলার নাম লিখুন।"
+                if lang == "bn" else
+                f"⚠️ Sorry, '{eff_city}' was not found.\n"
+                "This bot is exclusively dedicated to districts and upazilas in Bangladesh. "
+                "Foreign locations are not supported. Please enter a location within Bangladesh."
+            )
+            return
 
     # Check if the user solely typed a standalone city/upazila name (e.g. "Paris", "Tokyo", "বরিশাল", "তাড়াশ")
     words = text.split()
@@ -245,7 +284,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             if w_data:
                 card = format_current_weather_card(w_data, c0["display_name"], lang, unit)
                 markup = build_weather_buttons(c0["lat"], c0["lon"], c0["name"], lang)
-                await safe_reply(update, card, reply_markup=markup)
+                msg = signature_greeting + card if signature_greeting else card
+                await safe_reply(update, msg, reply_markup=markup)
                 return
 
     # 3. Everything else: General Knowledge, Q&A, Chit-chat -> Google Gemini AI!
@@ -256,10 +296,16 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     ai_response = await ask_gemini(user.id, text, lang)
     
-    # Always guarantee Abu Huraira AI signature greeting is present at the top
-    greeting_marker = "আবু হুরাইরার" if lang == "bn" else "Abu Huraira"
-    if greeting_marker not in ai_response:
-        ai_response = signature_greeting + ai_response
+    # Smart greeting handling for AI response:
+    greeting_bn = "আসসালামু আলাইকুম, আমি আবু হুরাইরার AI অ্যাসিস্ট্যান্ট, আপনাকে কীভাবে সাহায্য করি?"
+    greeting_en = "Assalamu Alaikum, I am Abu Huraira's AI Assistant, how can I help you?"
+    if signature_greeting:
+        greeting_marker = "আবু হুরাইরার" if lang == "bn" else "Abu Huraira"
+        if greeting_marker not in ai_response:
+            ai_response = signature_greeting + ai_response
+    else:
+        # User is in active conversation, strip greeting if Gemini generated it
+        ai_response = ai_response.replace(greeting_bn, "").replace(greeting_en, "").strip()
 
     # Telegram message limit is 4096 characters; chunk cleanly if needed
     if len(ai_response) > 4000:

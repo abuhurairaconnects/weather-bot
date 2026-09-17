@@ -156,15 +156,9 @@ COMMON_CITY_ALIASES = {
     "পীরগঞ্জ": "Pirganj", "pirganj": "Pirganj",
     "তারাগঞ্জ": "Taraganj", "taraganj": "Taraganj",
 
-    # World Cities
-    "লন্ডন": "London", "london": "London",
-    "নিউইয়র্ক": "New York", "new york": "New York",
-    "দিল্লি": "Delhi", "delhi": "Delhi",
-    "কলকাতা": "Kolkata", "kolkata": "Kolkata",
-    "দুবাই": "Dubai", "dubai": "Dubai",
-    "টোকিও": "Tokyo", "tokyo": "Tokyo",
-    "প্যারিস": "Paris", "paris": "Paris",
-    "মক্কা": "Mecca", "মদিনা": "Medina"
+    # Comilla Upazilas
+    "বরুড়া": "Barura", "বরুড়া": "Barura", "বড়ুরা": "Barura", "বড়ুড়া": "Barura",
+    "barura": "Barura", "barora": "Barura", "বরোড়া": "Barura", "বরোড়া": "Barura"
 }
 
 def extract_city_from_text(text: str) -> Optional[str]:
