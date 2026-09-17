@@ -47,7 +47,10 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/plain; charset=utf-8")
         self.end_headers()
-        self.wfile.write("🌦️ Telegram Weather Bot is Online & Active 24/7!".encode("utf-8"))
+        from config import GEMINI_API_KEY
+        gemini_status = "Active ✅" if bool(GEMINI_API_KEY) else "Not Configured ⚠️"
+        msg = f"🌦️ Telegram Weather Bot is Online & Active 24/7!\n🤖 Gemini AI: {gemini_status}\n"
+        self.wfile.write(msg.encode("utf-8"))
 
     def log_message(self, format, *args):
         # Silence ping log spamming
