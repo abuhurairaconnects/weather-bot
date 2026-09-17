@@ -1,4 +1,4 @@
-﻿"""
+"""
 Division Handler:
 Implements 3-tier hierarchical navigation for Bangladesh weather:
 Division (৮টি বিভাগ) -> District (৬৪টি জেলা) -> Upazila (৪৯৫+ উপজেলা) -> Real-time Weather Card.
@@ -18,6 +18,7 @@ from services.bd_geocoder import (
 )
 from services.weather_api import get_weather_data
 from handlers.weather_handler import format_current_weather_card
+from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 PAGE_SIZE = 10  # 10 upazilas per page (5 rows of 2 buttons)
 
@@ -112,6 +113,14 @@ def build_upazila_weather_buttons(lat: float, lon: float, city_name: str, distri
 
 async def show_divisions_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: Displays the 8 administrative divisions of Bangladesh."""
+    user = update.effective_user
+    if not is_authorized(user.id):
+        if update.message:
+            await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        elif update.callback_query:
+            await update.callback_query.answer("⛔ অ্যাক্সেস সীমাবদ্ধ! আপনি এই বটের অনুমোদিত অ্যাডমিন নন।", show_alert=True)
+        return
+
     text = (
         "🇧🇩 **বাংলাদেশ আবহাওয়া নেভিগেশন**\n"
         "──────────────────────\n"
@@ -131,6 +140,11 @@ async def show_divisions_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def division_callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles callbacks for division, district, and upazila navigation."""
     query = update.callback_query
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await query.answer("⛔ অ্যাক্সেস সীমাবদ্ধ! আপনি এই বটের অনুমোদিত অ্যাডমিন নন।", show_alert=True)
+        return
+
     await query.answer()
 
     data = query.data

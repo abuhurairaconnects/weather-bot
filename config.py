@@ -19,14 +19,38 @@ load_dotenv(BASE_DIR / ".env")
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 
+# Primary Developer & Admin ID
+PRIMARY_ADMIN_ID = 8953572486
+
 # Admin user IDs (list of ints)
 raw_admins = os.getenv("ADMIN_USER_IDS", "").strip()
-ADMIN_IDS = set()
+ADMIN_IDS = {PRIMARY_ADMIN_ID}
 if raw_admins:
     for item in raw_admins.split(","):
         clean_item = item.strip()
         if clean_item.isdigit():
             ADMIN_IDS.add(int(clean_item))
+
+# Strict Admin-Only Access Mode (default: True)
+ONLY_ADMIN_ACCESS = os.getenv("ONLY_ADMIN_ACCESS", "true").lower() in ("true", "1", "yes")
+
+def is_authorized(user_id: int) -> bool:
+    """Check if the given user is an authorized admin."""
+    if not ONLY_ADMIN_ACCESS:
+        return True
+    return bool(user_id and user_id in ADMIN_IDS)
+
+ACCESS_DENIED_MESSAGE_BN = (
+    "⛔ **অ্যাক্সেস সীমাবদ্ধ (Access Denied)**\n\n"
+    "দুঃখিত! এটি **আবু হুরাইরার** ব্যক্তিগত (Private) AI অ্যাসিস্ট্যান্ট বট। "
+    "শুধুমাত্র অনুমোদিত অ্যাডমিন ছাড়া অন্য কারো এটি ব্যবহারের অনুমতি নেই।"
+)
+
+ACCESS_DENIED_MESSAGE_EN = (
+    "⛔ **Access Denied**\n\n"
+    "Sorry! This is a private AI assistant bot for **Abu Huraira**. "
+    "Only authorized administrators can access this bot."
+)
 
 DB_PATH = DATA_DIR / "weather_bot.db"
 

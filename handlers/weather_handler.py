@@ -8,6 +8,7 @@ from database.db import get_or_create_user, log_search
 from services.weather_api import search_city, get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_wind_direction, get_aqi_category, get_uv_category
 from services.recommendations import generate_recommendations, format_recommendations_message
+from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "bn") -> InlineKeyboardMarkup:
     """Build inline keyboard with core options: 24h, 7-Day, Smart Advice, Refresh."""
@@ -126,6 +127,10 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
 async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /weather [city] command."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -158,9 +163,13 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /random command to fetch weather for a random Bangladesh upazila."""
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     import random
     from services.bd_geocoder import _BD_LOCATIONS, find_bd_location
-    user = update.effective_user
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -178,10 +187,14 @@ async def random_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle native GPS location attachment."""
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     loc = update.message.location
     lat = loc.latitude
     lon = loc.longitude
-    user = update.effective_user
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -199,6 +212,11 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callbacks from weather inline buttons (ref, adv, hr, fc)."""
     query = update.callback_query
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await query.answer("⛔ অ্যাক্সেস সীমাবদ্ধ! আপনি এই বটের অনুমোদিত অ্যাডমিন নন।", show_alert=True)
+        return
+
     await query.answer()
 
     data_str = query.data
@@ -209,7 +227,6 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
     action, lat_s, lon_s, city_name = parts[0], parts[1], parts[2], ":".join(parts[3:])
     lat, lon = float(lat_s), float(lon_s)
 
-    user = update.effective_user
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")

@@ -5,6 +5,7 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ContextTypes
 from database.db import get_or_create_user
 from utils.i18n import TERMINOLOGY_EXPLANATIONS
+from config import is_authorized, ACCESS_DENIED_MESSAGE_BN, ACCESS_DENIED_MESSAGE_EN
 
 def get_main_keyboard(lang: str = "bn") -> ReplyKeyboardMarkup:
     """Return persistent reply keyboard with only Division, 24h, and 7-day forecast buttons."""
@@ -23,6 +24,10 @@ def get_main_keyboard(lang: str = "bn") -> ReplyKeyboardMarkup:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
 
@@ -56,6 +61,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
 
@@ -90,6 +99,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /about command."""
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
     about_text = (
         "ℹ️ **About Weather Assistant Bot**\n"
         "━━━━━━━━━━━━━━━━━━━━\n"

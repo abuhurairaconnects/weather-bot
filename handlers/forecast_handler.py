@@ -8,6 +8,7 @@ from database.db import get_or_create_user, log_search
 from services.weather_api import search_city, get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_aqi_category
 from services.recommendations import generate_recommendations, format_recommendations_message
+from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 def format_daily_forecast_message(weather_data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
     """Format 7-10 day daily forecast bulletin."""
@@ -154,6 +155,10 @@ def format_air_quality_message(weather_data: dict, city_name: str, lang: str = "
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /forecast [city]."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -179,6 +184,10 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /hourly [city]."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -204,6 +213,10 @@ async def hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def airquality_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /airquality [city]."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -229,6 +242,10 @@ async def airquality_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def rain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /rain [city] (detailed rain analysis)."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -299,6 +316,10 @@ async def rain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def advice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /advice [city] (smart lifestyle advice)."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")

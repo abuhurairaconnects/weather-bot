@@ -15,6 +15,7 @@ from handlers.common import get_main_keyboard
 from handlers.division_handler import show_divisions_menu
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
+from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 import time
 from typing import Dict
@@ -47,8 +48,12 @@ async def safe_reply(update: Update, text: str, reply_markup=None):
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Dispatcher for free-form user messages and keyboard buttons."""
-    text = update.message.text.strip()
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
+    text = update.message.text.strip()
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     
     if db_user.get("is_blocked", 0) == 1:
