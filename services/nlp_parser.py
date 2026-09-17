@@ -113,6 +113,49 @@ COMMON_CITY_ALIASES = {
     "নেত্রকোনা": "Netrokona", "netrokona": "Netrokona",
     "শেরপুর": "Sherpur", "sherpur": "Sherpur",
 
+    # Sirajganj Upazilas
+    "তাড়াশ": "Tarash", "তাড়াশ": "Tarash", "tarash": "Tarash",
+    "শাহজাদপুর": "Shahjadpur", "shahjadpur": "Shahjadpur",
+    "উল্লাপাড়া": "Ullapara", "উল্লাপাড়া": "Ullapara", "ullapara": "Ullapara",
+    "বেলকুচি": "Belkuchi", "belkuchi": "Belkuchi",
+    "কাজীপুর": "Kazipur", "kazipur": "Kazipur",
+    "রায়গঞ্জ": "Rayganj", "রায়গঞ্জ": "Rayganj", "rayganj": "Rayganj",
+    "কামারখন্দ": "Kamarkhanda", "kamarkhanda": "Kamarkhanda",
+    "চৌহালী": "Chauhali", "chauhali": "Chauhali",
+
+    # Natore Upazilas
+    "সিংড়া": "Singra", "সিংড়া": "Singra", "singra": "Singra",
+    "গুরুদাসপুর": "Gurudaspur", "gurudaspur": "Gurudaspur",
+    "বড়াইগ্রাম": "Baraigram", "বড়াইগ্রাম": "Baraigram", "baraigram": "Baraigram",
+    "লালপুর": "Lalpur", "lalpur": "Lalpur",
+    "বাগাতিপাড়া": "Bagatipara", "বাগাতিপাড়া": "Bagatipara", "bagatipara": "Bagatipara",
+
+    # Pabna Upazilas
+    "চাটমোহর": "Chatmohar", "chatmohar": "Chatmohar",
+    "ভাঙ্গুড়া": "Bhangura", "ভাঙ্গুড়া": "Bhangura", "bhangura": "Bhangura",
+    "বেড়া": "Bera", "বেড়া": "Bera", "bera": "Bera",
+    "সাঁথিয়া": "Santhia", "সাঁথিয়া": "Santhia", "santhia": "Santhia",
+    "সুজানগর": "Sujanagar", "sujanagar": "Sujanagar",
+
+    # Cox's Bazar & Chittagong Upazilas
+    "পেকুয়া": "Pekua", "পেকুয়া": "Pekua", "pekua": "Pekua",
+    "চকোরিয়া": "Chakaria", "চকোরিয়া": "Chakaria", "চকরিয়া": "Chakaria", "chakaria": "Chakaria",
+    "মহেশখালী": "Maheshkhali", "maheshkhali": "Maheshkhali",
+    "কুতুবদিয়া": "Kutubdia", "কুতুবদিয়া": "Kutubdia", "kutubdia": "Kutubdia",
+    "উখিয়া": "Ukhiya", "উখিয়া": "Ukhiya", "ukhiya": "Ukhiya",
+    "সীতাকুণ্ড": "Sitakunda", "sitakunda": "Sitakunda",
+    "মিরসরাই": "Mirsarai", "mirsarai": "Mirsarai",
+    "হাতিয়া": "Hatiya", "হাতিয়া": "Hatiya", "hatiya": "Hatiya",
+    "সন্দ্বীপ": "Sandwip", "sandwip": "Sandwip",
+
+    # Kurigram & Northern Upazilas
+    "চিলমারী": "Chilmari", "chilmari": "Chilmari",
+    "রৌমারী": "Roumari", "roumari": "Roumari",
+    "নাগেশ্বরী": "Nageshwari", "nageshwari": "Nageshwari",
+    "ভুরুঙ্গামারী": "Bhurungamari", "bhurungamari": "Bhurungamari",
+    "পীরগঞ্জ": "Pirganj", "pirganj": "Pirganj",
+    "তারাগঞ্জ": "Taraganj", "taraganj": "Taraganj",
+
     # World Cities
     "লন্ডন": "London", "london": "London",
     "নিউইয়র্ক": "New York", "new york": "New York",
@@ -125,8 +168,17 @@ COMMON_CITY_ALIASES = {
 }
 
 def extract_city_from_text(text: str) -> Optional[str]:
-    """Scan text for known city mentions with multi-word priority and suffix normalization."""
+    """Scan text for known city mentions with multi-word priority, suffix normalization, and candidate extraction."""
     lower = text.lower().strip()
+
+    # Conversational non-weather guard
+    conversational_triggers = [
+        "কেমন আছো", "কেমন আছেন", "কি খবর", "কী খবর", "হাই", "হ্যালো", "ধন্যবাদ",
+        "how are you", "hello", "hi", "hey", "thanks", "thank you", "who are you",
+        "কৌতুক", "গল্প", "কবিতা", "গান", "নাম কী", "কে তুমি"
+    ]
+    if any(c in lower for c in conversational_triggers):
+        return None
 
     # 1. Direct match
     if lower in COMMON_CITY_ALIASES:
@@ -152,6 +204,26 @@ def extract_city_from_text(text: str) -> Optional[str]:
         w_norm = normalize_bengali_name(w_lower)
         if w_norm in COMMON_CITY_ALIASES:
             return COMMON_CITY_ALIASES[w_norm]
+
+    # 5. Candidate word extraction for random upazilas/villages not in dictionary
+    weather_stopwords = {
+        "weather", "climate", "forecast", "temp", "temperature", "rain", "rainy",
+        "আবহাওয়া", "আবহাওয়া", "আবহাওয়ার", "আবহাওয়ার", "ওয়েদার", "ওয়েদার", "ওয়েদারের", "ওয়েদারের",
+        "বৃষ্টি", "বৃষ্টিপাত", "তাপমাত্রা", "বাতাস", "ঝড়", "গরম", "ঠান্ডা", "শীত", "ছাতা",
+        "আজ", "আজকে", "আজকের", "কাল", "কালকে", "এখন", "এখনকার", "বর্তমান", "রিয়েল-টাইম", "রিয়েল-টাইম",
+        "কি", "কী", "কেন", "কেমন", "কখন", "কোথায়", "হবে", "হচ্ছে", "আছে", "না", "নাকি", "বলো", "বল",
+        "জানা", "জানাও", "দেখা", "দেখাও", "দাও", "করো", "কে", "কার", "কোন", "কত", "কতটুকু", "বেশি", "কম",
+        "লাগবে", "লাগে", "লাগল", "হলে", "পড়বে", "থাকবে", "যাবে", "যাব", "নিব", "নেব", "দরকার", "প্রয়োজন",
+        "in", "at", "for", "the", "is", "it", "today", "now", "will"
+    }
+    candidate_words = []
+    for w in words:
+        w_clean = w.lower().strip("?,.!;:\"' ")
+        if w_clean not in weather_stopwords and len(w_clean) >= 2:
+            candidate_words.append(normalize_bengali_name(w_clean))
+
+    if candidate_words and len(candidate_words) <= 2:
+        return candidate_words[0]
 
     return None
 
@@ -243,5 +315,9 @@ def classify_intent(text: str) -> Dict[str, Any]:
     norm_lower = normalize_bengali_name(lower)
     if norm_lower in COMMON_CITY_ALIASES:
         return {"intent": "general_weather", "city": COMMON_CITY_ALIASES[norm_lower]}
+
+    # If an area was extracted and it's a short 1-2 word query, treat as general_weather
+    if city and len(lower.split()) <= 2:
+        return {"intent": "general_weather", "city": city}
 
     return {"intent": "unknown", "city": city}

@@ -42,7 +42,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         from config import GEMINI_API_KEY
         gemini_status = "Active ✅" if bool(GEMINI_API_KEY) else "Not Configured ⚠️"
-        msg = f"🌦️ Telegram Weather Bot is Online & Active 24/7!\n🤖 Gemini AI: {gemini_status}\n"
+        msg = f"🌦️ Telegram Weather Bot is Online & Active 24/7!\n🤖 Gemini AI: {gemini_status}\n📦 Version: 3.2.0-core-upazila-verified\n"
         self.wfile.write(msg.encode("utf-8"))
 
     def log_message(self, format, *args):

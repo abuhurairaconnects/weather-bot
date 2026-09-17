@@ -172,7 +172,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             await update.message.reply_text(reply, parse_mode="Markdown")
             return
 
-    # Explicit general weather intent (e.g. "আজকে আবহাওয়া কেমন", "Dhaka weather")
+    # Explicit general weather intent (e.g. "আজকে আবহাওয়া কেমন", "Dhaka weather", "তাড়াশ")
     if intent == "general_weather":
         eff_city = target_city or default_city
         cities = await search_city(eff_city)
@@ -182,10 +182,13 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             if w_data:
                 card = format_current_weather_card(w_data, city["display_name"], lang, unit)
                 markup = build_weather_buttons(city["lat"], city["lon"], city["name"], lang)
-                await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+                try:
+                    await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+                except Exception:
+                    await update.message.reply_text(card.replace("*", "").replace("`", ""), reply_markup=markup)
                 return
 
-    # Check if the user solely typed a standalone city name (e.g. "Paris", "Tokyo", "বরিশাল")
+    # Check if the user solely typed a standalone city name (e.g. "Paris", "Tokyo", "বরিশাল", "তাড়াশ")
     words = text.split()
     question_triggers = [
         '?', 'কী', 'কি', 'কেন', 'কে', 'কোন', 'কোথায়', 'কিভাবে', 'কার', 'বল', 'বলো', 'লিখ', 'লেখ',
@@ -202,7 +205,10 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
             if w_data:
                 card = format_current_weather_card(w_data, c0["display_name"], lang, unit)
                 markup = build_weather_buttons(c0["lat"], c0["lon"], c0["name"], lang)
-                await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+                try:
+                    await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+                except Exception:
+                    await update.message.reply_text(card.replace("*", "").replace("`", ""), reply_markup=markup)
                 return
 
     # 3. Everything else: General Knowledge, Q&A, Chit-chat -> Google Gemini AI!
