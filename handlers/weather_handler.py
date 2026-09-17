@@ -388,11 +388,19 @@ def format_lightning_alert_card(data: dict, city_name: str, lang: str = "bn", un
 async def lightning_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /lightning [location] or /storm."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
+    query = " ".join(context.args).strip() if context.args else ""
+    if not query:
+        from handlers.division_handler import show_lightning_divisions_menu
+        await show_lightning_divisions_menu(update, context)
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
-
-    query = " ".join(context.args).strip() if context.args else ""
     city_info = None
 
     if query:
@@ -407,19 +415,6 @@ async def lightning_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(f"❌ '{query}' এলাকাটি খুঁজে পাওয়া যায়নি।")
                 return
-
-    if not city_info:
-        def_city = db_user.get("default_city") or "Dhaka"
-        from services.bd_geocoder import find_bd_location
-        bd_loc = find_bd_location(def_city)
-        if bd_loc:
-            city_info = bd_loc
-        else:
-            cities = await search_city(def_city)
-            city_info = cities[0] if cities else None
-
-    if not city_info:
-        city_info = {"name": "Dhaka", "display_name": "ঢাকা (Dhaka)", "lat": 23.7115253, "lon": 90.4111451}
 
     weather_data = await get_weather_data(city_info["lat"], city_info["lon"], unit)
     if not weather_data:

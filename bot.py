@@ -173,7 +173,7 @@ def main():
     application.add_handler(CommandHandler("unblock", unblock_user_command))
 
     # 5. Callbacks
-    application.add_handler(CallbackQueryHandler(division_callback_dispatcher, pattern=r"^(div|dist|dist_p|upz|back):"))
+    application.add_handler(CallbackQueryHandler(division_callback_dispatcher, pattern=r"^(div|dist|dist_p|upz|back|ldiv|ldist|ldist_p|lupz|lback|lref|noop)($|:)"))
     application.add_handler(CallbackQueryHandler(weather_callback_dispatcher, pattern=r"^(ref|hr|fc|adv):"))
     application.add_handler(CallbackQueryHandler(user_preferences_callback, pattern=r"^(cfg|alt|delfav):"))
 

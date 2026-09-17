@@ -12,7 +12,7 @@ from services.recommendations import generate_recommendations, format_recommenda
 from handlers.weather_handler import format_current_weather_card, build_weather_buttons
 from handlers.forecast_handler import format_hourly_message, format_daily_forecast_message, format_air_quality_message
 from handlers.common import get_main_keyboard
-from handlers.division_handler import show_divisions_menu
+from handlers.division_handler import show_divisions_menu, show_lightning_divisions_menu
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
 from config import is_authorized, ACCESS_DENIED_MESSAGE_BN
@@ -98,15 +98,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         "বজ্রপাত সতর্কতা", "বজ্রপাত ও ঝড় সতর্কতা", "বজ্রপাত আপডেট", "বজ্রপাত",
         "⚡ Lightning Alert", "Lightning Alert", "⚡ Severe Weather Alert", "lightning", "thunder"
     ]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                from handlers.weather_handler import format_lightning_alert_card, build_weather_buttons
-                card = format_lightning_alert_card(w, c["display_name"], lang, unit)
-                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
-                await safe_reply(update, card, reply_markup=markup)
+        await show_lightning_divisions_menu(update, context)
         return
 
     # E. Subscription / Unsubscription NLP shortcuts

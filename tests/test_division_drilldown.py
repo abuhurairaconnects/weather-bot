@@ -21,11 +21,15 @@ from handlers.division_handler import (
     build_divisions_keyboard,
     build_districts_keyboard,
     build_upazilas_keyboard,
-    build_upazila_weather_buttons
+    build_upazila_weather_buttons,
+    build_lightning_divisions_keyboard,
+    build_lightning_districts_keyboard,
+    build_lightning_upazilas_keyboard,
+    build_upazila_lightning_buttons
 )
 from handlers.common import get_main_keyboard
 from services.weather_api import get_weather_data
-from handlers.weather_handler import format_current_weather_card
+from handlers.weather_handler import format_current_weather_card, format_lightning_alert_card
 
 async def run_tests():
     print("========================================")
@@ -118,8 +122,55 @@ async def run_tests():
     assert total_buttons == 4, f"Expected 4 buttons, got {total_buttons}"
     print("  ✅ Reply Keyboard strictly matches user's request (exactly 4 buttons: Division, Lightning, 24h, 7-Day)!")
 
+    # 7. Test Dedicated Lightning Alert Drilldown Keyboards & Cards
+    print("\n[7/7] Testing Dedicated Lightning Alert Keyboards & Localized Card...")
+    # Lightning Division Keyboard
+    ldiv_kb = build_lightning_divisions_keyboard()
+    ldiv_buttons = [btn for row in ldiv_kb.inline_keyboard for btn in row]
+    assert len(ldiv_buttons) == 8, f"Expected 8 division buttons, got {len(ldiv_buttons)}"
+    for btn in ldiv_buttons:
+        assert btn.callback_data.startswith("ldiv:"), f"Invalid prefix: {btn.callback_data}"
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Lightning 8-division keyboard verified!")
+
+    # Lightning District Keyboard (Chattogram)
+    ldist_kb = build_lightning_districts_keyboard("Chattogram")
+    ldist_buttons = [btn for row in ldist_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data == "ldist:Cumilla" for b in ldist_buttons)
+    assert any(b.callback_data == "lback:div" for b in ldist_buttons)
+    for btn in ldist_buttons:
+        assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Lightning district keyboard (Chattogram) verified with Cumilla & lback:div!")
+
+    # Lightning Upazila Keyboard (Cumilla)
+    lupz_kb = build_lightning_upazilas_keyboard("Cumilla", page=0)
+    lupz_buttons = [btn for row in lupz_kb.inline_keyboard for btn in row]
+    assert any("কুমিল্লা সদর" in b.text for b in lupz_buttons)
+    assert any(b.callback_data.startswith("ldist_p:") for b in lupz_buttons)  # pagination
+    assert any(b.callback_data.startswith("lback:dist:") for b in lupz_buttons)  # back to dist
+    for btn in lupz_buttons:
+        if btn.callback_data != "noop":
+            assert len(btn.callback_data.encode('utf-8')) <= 64
+    print("  ✅ Lightning upazila keyboard (Cumilla) verified with pagination & back button!")
+
+    # Upazila Lightning Action Buttons
+    l_act_kb = build_upazila_lightning_buttons(barura["lat"], barura["lon"], barura["name"], "Cumilla", "bn")
+    act_buttons = [btn for row in l_act_kb.inline_keyboard for btn in row]
+    assert any(b.callback_data.startswith("lref:") for b in act_buttons)
+    assert any(b.callback_data == "lback:upz:Cumilla" for b in act_buttons)
+    assert any(b.callback_data.startswith("hr:") for b in act_buttons)
+    assert any(b.callback_data.startswith("ref:") for b in act_buttons)
+    print("  ✅ Upazila lightning action buttons (lref, lback:upz, hr, ref) verified!")
+
+    # Localized Lightning Alert Card
+    l_card = format_lightning_alert_card(w, barura["display_name"], "bn", "C")
+    assert "বজ্রপাত" in l_card
+    assert "ঝুঁকির মাত্রা" in l_card
+    assert "জরুরি জীবনরক্ষাকারী সতর্কতা" in l_card
+    print("  ✅ Dedicated localized Lightning Alert Card verified for Barura, Cumilla!")
+
     print("\n========================================")
-    print("🎉 ALL DIVISION DRILLDOWN TESTS PASSED! (100% SUCCESS)")
+    print("🎉 ALL DIVISION & LIGHTNING DRILLDOWN TESTS PASSED! (100% SUCCESS)")
     print("========================================")
 
 if __name__ == "__main__":
