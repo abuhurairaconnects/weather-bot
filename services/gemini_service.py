@@ -72,7 +72,12 @@ async def ask_gemini(user_id: int, user_query: str, lang: str = "bn") -> str:
                     data = resp.json()
                     candidates = data.get("candidates", [])
                     if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
+                        cand = candidates[0]
+                        finish_reason = cand.get("finishReason", "")
+                        if finish_reason == "SAFETY":
+                            return "⚠️ দুঃখিত, নিরাপত্তা ও নীতিমালা কারণে এই প্রশ্নের উত্তর দেওয়া সম্ভব হচ্ছে না।" if lang == "bn" else "⚠️ Sorry, this response was blocked due to safety guidelines."
+
+                        parts = cand.get("content", {}).get("parts", [])
                         if parts and "text" in parts[0]:
                             reply_text = parts[0]["text"].strip()
                             

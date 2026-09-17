@@ -263,7 +263,17 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         pass
 
     ai_response = await ask_gemini(user.id, text, lang)
-    try:
-        await update.message.reply_text(ai_response, parse_mode="Markdown")
-    except Exception:
-        await update.message.reply_text(ai_response)
+    
+    # Telegram message limit is 4096 characters; chunk cleanly if needed
+    if len(ai_response) > 4000:
+        for i in range(0, len(ai_response), 4000):
+            chunk = ai_response[i:i+4000]
+            try:
+                await update.message.reply_text(chunk, parse_mode="Markdown")
+            except Exception:
+                await update.message.reply_text(chunk)
+    else:
+        try:
+            await update.message.reply_text(ai_response, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(ai_response)
