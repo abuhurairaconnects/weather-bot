@@ -42,9 +42,9 @@ COMMON_CITY_ALIASES = {
     "শরীয়তপুর": "Shariatpur", "shariatpur": "Shariatpur",
 
     # Chittagong Division
-    "চট্টগ্রাম": "Chittagong", "চিটাগাং": "Chittagong", "chittagong": "Chittagong", "chattogram": "Chittagong",
+    "চট্টগ্রাম": "Chattogram", "চিটাগাং": "Chattogram", "chittagong": "Chattogram", "chattogram": "Chattogram",
     "কক্সবাজার": "Cox's Bazar", "cox's bazar": "Cox's Bazar", "coxs bazar": "Cox's Bazar",
-    "কুমিল্লা": "Comilla", "comilla": "Comilla", "cumilla": "Comilla",
+    "কুমিল্লা": "Cumilla", "comilla": "Cumilla", "cumilla": "Cumilla",
     "ফেনী": "Feni", "feni": "Feni",
     "ব্রাহ্মণবাড়িয়া": "Brahmanbaria", "brahmanbaria": "Brahmanbaria", "ব্রাহ্মণবাড়িয়া": "Brahmanbaria",
     "নোয়াখালী": "Noakhali", "noakhali": "Noakhali", "নোয়াখালী": "Noakhali",
@@ -58,16 +58,16 @@ COMMON_CITY_ALIASES = {
 
     # Sylhet Division
     "সিলেট": "Sylhet", "sylhet": "Sylhet",
-    "মৌলভীবাজার": "Moulvibazar", "moulvibazar": "Moulvibazar",
-    "শ্রীমঙ্গল": "Srimangal", "srimangal": "Srimangal", "sreemangal": "Srimangal",
+    "মৌলভীবাজার": "Maulvibazar", "moulvibazar": "Maulvibazar", "maulvibazar": "Maulvibazar",
+    "শ্রীমঙ্গল": "Sreemangal", "srimangal": "Sreemangal", "sreemangal": "Sreemangal",
     "হবিগঞ্জ": "Habiganj", "habiganj": "Habiganj",
     "সুনামগঞ্জ": "Sunamganj", "sunamganj": "Sunamganj",
 
     # Rajshahi Division
     "রাজশাহী": "Rajshahi", "rajshahi": "Rajshahi",
-    "বগুড়া": "Bogra", "bogra": "Bogra", "বগুড়া": "Bogra", "bogura": "Bogra",
+    "বগুড়া": "Bogura", "bogra": "Bogura", "বগুড়া": "Bogura", "bogura": "Bogura",
     "পাবনা": "Pabna", "pabna": "Pabna",
-    "সিরাজগঞ্জ": "Sirajganj", "sirajganj": "Sirajganj",
+    "সিরাজগঞ্জ": "Sirajgonj", "sirajganj": "Sirajgonj", "sirajgonj": "Sirajgonj",
     "নাটোর": "Natore", "natore": "Natore",
     "নওগাঁ": "Naogaon", "naogaon": "Naogaon",
     "চাঁপাইনবাবগঞ্জ": "Chapai Nawabganj", "chapai nawabganj": "Chapai Nawabganj",
@@ -76,7 +76,7 @@ COMMON_CITY_ALIASES = {
 
     # Khulna Division
     "খুলনা": "Khulna", "khulna": "Khulna",
-    "যশোর": "Jessore", "jessore": "Jessore", "jashore": "Jessore",
+    "যশোর": "Jashore", "jessore": "Jashore", "jashore": "Jashore",
     "কুষ্টিয়া": "Kushtia", "কুষ্টিয়া": "Kushtia", "kushtia": "Kushtia",
     "ঝিনাইদহ": "Jhenaidah", "jhenaidah": "Jhenaidah",
     "সাতক্ষীরা": "Satkhira", "satkhira": "Satkhira",
@@ -88,7 +88,7 @@ COMMON_CITY_ALIASES = {
     "ভেড়ামারা": "Bheramara", "bheramara": "Bheramara",
 
     # Barishal Division
-    "বরিশাল": "Barisal", "barisal": "Barisal", "barishal": "Barisal",
+    "বরিশাল": "Barishal", "barisal": "Barishal", "barishal": "Barishal",
     "পটুয়াখালী": "Patuakhali", "patuakhali": "Patuakhali", "পটুয়াখালী": "Patuakhali",
     "ভোলা": "Bhola", "bhola": "Bhola",
     "পিরোজপুর": "Pirojpur", "pirojpur": "Pirojpur",
@@ -326,16 +326,20 @@ def classify_intent(text: str) -> Dict[str, Any]:
     if any(k in lower for k in weather_keywords):
         return {"intent": "general_weather", "city": city}
 
+    # If city is present and user asks news/status/condition ("খবর", "কেমন", "অবস্থা")
+    if city and any(k in lower for k in ["খবর", "কেমন", "অবস্থা", "news", "update"]):
+        return {"intent": "general_weather", "city": city}
+
     # If it's solely a known city name or alias (e.g. "Dhaka", "ঢাকা", "সিলেট", "মিরপুর")
     if lower in COMMON_CITY_ALIASES:
-        return {"intent": "general_weather", "city": COMMON_CITY_ALIASES[lower]}
+        return {"intent": "general_weather", "city": city or COMMON_CITY_ALIASES[lower]}
 
     norm_lower = normalize_bengali_name(lower)
     if norm_lower in COMMON_CITY_ALIASES:
-        return {"intent": "general_weather", "city": COMMON_CITY_ALIASES[norm_lower]}
+        return {"intent": "general_weather", "city": city or COMMON_CITY_ALIASES[norm_lower]}
 
-    # If an area was extracted and it's a short 1-2 word query, treat as general_weather
-    if city and len(lower.split()) <= 2:
+    # If an area was extracted and it's a short 1-3 word query, treat as general_weather
+    if city and len(lower.split()) <= 3:
         return {"intent": "general_weather", "city": city}
 
     return {"intent": "unknown", "city": city}

@@ -68,7 +68,7 @@ async def ask_gemini(user_id: int, user_query: str, lang: str = "bn") -> str:
     for model_name in GEMINI_MODELS:
         url = f"{GEMINI_API_BASE_URL}/{model_name}:generateContent?key={GEMINI_API_KEY}"
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, headers=headers, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()

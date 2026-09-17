@@ -34,7 +34,7 @@ async def resolve_area_with_ai(bengali_name: str) -> Optional[str]:
     prompt = f'What is the single standard English place keyword for "{clean}" in Bangladesh or worldwide? If this is fake, gibberish, or not a real geographical place, reply ONLY with "UNKNOWN". Otherwise return ONLY the single place name keyword in English without commas, punctuation, or country name (e.g. "Srimangal" or "Bheramara" or "Kushtia").'
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.post(url, json=payload)
             if r.status_code == 200:
                 candidates = r.json().get("candidates", [])
