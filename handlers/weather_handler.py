@@ -304,3 +304,129 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
         from handlers.forecast_handler import format_daily_forecast_message
         msg = format_daily_forecast_message(weather_data, city_name, lang, unit)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
+
+def format_lightning_alert_card(data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
+    """Produce comprehensive lightning & thunderstorm status and safety report."""
+    cur = data.get("current", {})
+    hourly = data.get("hourly", {})
+    wmo_code = cur.get("wmo_code", 0)
+    cond_text, cond_emoji = get_wmo_description(wmo_code, lang)
+    temp_str = format_temp(cur.get("temp"), unit)
+    feels_str = format_temp(cur.get("feels_like"), unit)
+    wind_spd = cur.get("wind_speed", 0.0)
+    wind_dir = cur.get("wind_direction_compass", "")
+    
+    codes = hourly.get("weather_code", [])[:24]
+    rain_probs = hourly.get("precipitation_probability", [])[:24]
+    wind_speeds = hourly.get("wind_speed_10m", [])[:24]
+    
+    has_thunderstorm_soon = (wmo_code in [95, 96, 99]) or any(c in [95, 96, 99] for c in codes[:6])
+    has_thunderstorm_today = has_thunderstorm_soon or any(c in [95, 96, 99] for c in codes)
+    max_rain = max(rain_probs[:12]) if rain_probs else cur.get("today_rain_chance_max", 0)
+    max_wind = max(wind_speeds[:12]) if wind_speeds else wind_spd
+    
+    if lang == "bn":
+        if has_thunderstorm_soon:
+            risk_badge = "🔴 **উচ্চ ঝুঁকি (High Risk)**"
+            risk_summary = "⚠️ আগামী কয়েক ঘণ্টার মধ্যে আপনার এলাকায় তীব্র বজ্রপাত, শিলাবৃষ্টি বা কালবৈশাখী ঝড়ের প্রবল আশঙ্কা রয়েছে!"
+        elif has_thunderstorm_today or max_rain >= 70 or max_wind >= 38:
+            risk_badge = "🟡 **মাঝারি ঝুঁকি (Moderate Alert)**"
+            risk_summary = f"⚠️ আজ বজ্রঝড় বা দমকা হাওয়াসহ ভারি বৃষ্টির সম্ভাবনা রয়েছে (সর্বোচ্চ বৃষ্টিপাত ঝুঁকি: {max_rain}%)।"
+        else:
+            risk_badge = "🟢 **ঝুঁকিমুক্ত ও স্বাভাবিক (Safe)**"
+            risk_summary = "✅ বর্তমানে আপনার এলাকায় কোনো প্রকার বজ্রপাত বা কালবৈশাখী ঝড়ের ঝুঁকি নেই। আকাশ স্বাভাবিক রয়েছে।"
+
+        return (
+            f"⚡ **বজ্রপাত ও ঝড়-বৃষ্টি সতর্কতা রিপোর্ট — {city_name}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📊 **বজ্রপাতের ঝুঁকির মাত্রা:** {risk_badge}\n"
+            f"📝 **সারসংক্ষেপ:** {risk_summary}\n\n"
+            f"📍 **বর্তমান আবহাওয়া পরিস্থিতি:**\n"
+            f"• আকাশ: {cond_emoji} {cond_text}\n"
+            f"• তাপমাত্রা: {temp_str} (অনুভূত: {feels_str})\n"
+            f"• বৃষ্টির সম্ভাবনা: {max_rain}%\n"
+            f"• বাতাসের গতিবেগ: {wind_spd:.1f} কিমি/ঘণ্টা ({wind_dir})\n"
+            f"• সর্বোচ্চ দমকা হাওয়া: {max_wind:.1f} কিমি/ঘণ্টা\n\n"
+            f"🛡️ **বজ্রপাতকালীন জরুরি জীবনরক্ষাকারী সতর্কতা:**\n"
+            f"১. খোলা মাঠ, ধানক্ষেত বা খোলা বারান্দায় থাকবেন না; দ্রুত কোনো পাকা ভবনে আশ্রয় নিন।\n"
+            f"২. কোনো অবস্থাতেই বড় গাছ, বৈদ্যুতিক খুঁটি বা ধাতব কাঠামোর নিচে দাঁড়াবেন না।\n"
+            f"৩. পুকুর, নদী বা জলাশয়ে থাকলে সাথে সাথে পানি থেকে উঠে ডাঙায় আসুন।\n"
+            f"৪. ঘরের ভেতর থাকলে জানালার কাঁচ, ধাতব বস্তু ও তারযুক্ত বৈদ্যুতিক যন্ত্রপাতি থেকে দূরে থাকুন।\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💡 *অন্য কোনো এলাকার বজ্রপাত পরিস্থিতি জানতে চাইলে সরাসরি এলাকাটির নাম লিখে পাঠান (যেমন: `বরুড়া`, `কুষ্টিয়া`, `সিলেট`)।*"
+        )
+    else:
+        if has_thunderstorm_soon:
+            risk_badge = "🔴 **High Risk**"
+            risk_summary = "⚠️ High risk of severe thunderstorm, lightning, and hail in the coming hours!"
+        elif has_thunderstorm_today or max_rain >= 70 or max_wind >= 38:
+            risk_badge = "🟡 **Moderate Alert**"
+            risk_summary = f"⚠️ Moderate risk of rainstorms or squalls today (Max rain chance: {max_rain}%)."
+        else:
+            risk_badge = "🟢 **Safe / Normal**"
+            risk_summary = "✅ No severe thunderstorm or lightning risks detected currently."
+
+        return (
+            f"⚡ **Lightning & Storm Warning Report — {city_name}**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📊 **Thunderstorm Threat Level:** {risk_badge}\n"
+            f"📝 **Summary:** {risk_summary}\n\n"
+            f"📍 **Current Conditions:**\n"
+            f"• Sky: {cond_emoji} {cond_text}\n"
+            f"• Temperature: {temp_str} (Feels: {feels_str})\n"
+            f"• Rain Probability: {max_rain}%\n"
+            f"• Wind Speed: {wind_spd:.1f} km/h\n"
+            f"• Max Gusts: {max_wind:.1f} km/h\n\n"
+            f"🛡️ **Life-Saving Lightning Precautions:**\n"
+            f"1. Stay indoors away from open fields and outdoor waters.\n"
+            f"2. Never take shelter under tall trees, power poles, or metal towers.\n"
+            f"3. Unplug sensitive electronics and avoid contact with plumbing or wired phones.\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💡 *Type any district or upazila name to check its lightning status.*"
+        )
+
+async def lightning_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /lightning [location] or /storm."""
+    user = update.effective_user
+    db_user = await get_or_create_user(user.id, user.username, user.first_name)
+    lang = db_user.get("language", "bn")
+    unit = db_user.get("temp_unit", "C")
+
+    query = " ".join(context.args).strip() if context.args else ""
+    city_info = None
+
+    if query:
+        from services.bd_geocoder import find_bd_location
+        bd_loc = find_bd_location(query)
+        if bd_loc:
+            city_info = bd_loc
+        else:
+            cities = await search_city(query)
+            if cities:
+                city_info = cities[0]
+            else:
+                await update.message.reply_text(f"❌ '{query}' এলাকাটি খুঁজে পাওয়া যায়নি।")
+                return
+
+    if not city_info:
+        def_city = db_user.get("default_city") or "Dhaka"
+        from services.bd_geocoder import find_bd_location
+        bd_loc = find_bd_location(def_city)
+        if bd_loc:
+            city_info = bd_loc
+        else:
+            cities = await search_city(def_city)
+            city_info = cities[0] if cities else None
+
+    if not city_info:
+        city_info = {"name": "Dhaka", "display_name": "ঢাকা (Dhaka)", "lat": 23.7115253, "lon": 90.4111451}
+
+    weather_data = await get_weather_data(city_info["lat"], city_info["lon"], unit)
+    if not weather_data:
+        await update.message.reply_text("⚠️ আবহাওয়া তথ্য আনা সম্ভব হয়নি।")
+        return
+
+    card = format_lightning_alert_card(weather_data, city_info["display_name"], lang, unit)
+    markup = build_weather_buttons(city_info["lat"], city_info["lon"], city_info["name"], lang)
+    await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
+

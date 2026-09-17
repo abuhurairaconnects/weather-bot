@@ -20,7 +20,11 @@ if sys.platform == "win32":
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from handlers.weather_handler import get_severe_weather_alert, format_current_weather_card
+from handlers.weather_handler import (
+    get_severe_weather_alert,
+    format_current_weather_card,
+    format_lightning_alert_card
+)
 from jobs.scheduler import build_morning_report_message, build_evening_report_message
 from database.db import (
     init_db,
@@ -111,6 +115,14 @@ def test_severe_weather_banner():
     assert "বজ্রঝড় ও বজ্রপাত সতর্কতা" in card
     assert "ঝড়ো হাওয়া সতর্কতা" in card
     print("  ✅ Card Integration: Warning banner displays prominently at top of weather status")
+
+    # H. Verification of Dedicated Lightning Report Card (format_lightning_alert_card)
+    lightning_card = format_lightning_alert_card(full_card_data, "Dhaka", "bn", "C")
+    assert "⚡ **বজ্রপাত ও ঝড়-বৃষ্টি সতর্কতা রিপোর্ট — Dhaka**" in lightning_card
+    assert "বজ্রপাতের ঝুঁকির মাত্রা" in lightning_card
+    assert "উচ্চ ঝুঁকি" in lightning_card
+    assert "বজ্রপাতকালীন জরুরি জীবনরক্ষাকারী সতর্কতা" in lightning_card
+    print("  ✅ Lightning Report Card: Formats full threat level, conditions & safety rules")
 
 def test_feature_2_agro_excluded():
     print("\n--- [2/5] Verifying Feature 2 (Agro-Weather) is Excluded ---")

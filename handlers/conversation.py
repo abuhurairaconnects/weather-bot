@@ -92,7 +92,24 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await safe_reply(update, format_daily_forecast_message(w, c["display_name"], lang, unit), reply_markup=get_main_keyboard(lang))
         return
 
-    # D. Subscription / Unsubscription NLP shortcuts
+    # D. Lightning & Severe Storm Alert (বজ্রপাত সতর্কতা)
+    if text in [
+        "⚡ বজ্রপাত সতর্কতা", "⚡ বজ্রপাত ও ঝড় সতর্কতা", "⚡ বজ্রপাত আপডেট",
+        "বজ্রপাত সতর্কতা", "বজ্রপাত ও ঝড় সতর্কতা", "বজ্রপাত আপডেট", "বজ্রপাত",
+        "⚡ Lightning Alert", "Lightning Alert", "⚡ Severe Weather Alert", "lightning", "thunder"
+    ]:
+        cities = await search_city(default_city)
+        if cities:
+            c = cities[0]
+            w = await get_weather_data(c["lat"], c["lon"], unit)
+            if w:
+                from handlers.weather_handler import format_lightning_alert_card, build_weather_buttons
+                card = format_lightning_alert_card(w, c["display_name"], lang, unit)
+                markup = build_weather_buttons(c["lat"], c["lon"], c["name"], lang)
+                await safe_reply(update, card, reply_markup=markup)
+        return
+
+    # E. Subscription / Unsubscription NLP shortcuts
     lower_text = text.lower()
     if any(k in lower_text for k in ["আনসাবস্ক্রাইব", "unsubscribe", "অ্যালার্ট বন্ধ", "নোটিফিকেশন বন্ধ", "বুলেটিন বন্ধ"]):
         from handlers.user_handlers import unsubscribe_command

@@ -2,6 +2,13 @@ import os
 import sys
 import asyncio
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.bd_geocoder import (
@@ -100,14 +107,16 @@ async def run_tests():
     print("  ✅ Real-time weather card generated successfully for Barura!")
 
     # 6. Test Streamlined Reply Keyboard
-    print("\n[6/6] Testing Streamlined 3-Button Reply Keyboard...")
+    print("\n[6/6] Testing Streamlined 4-Button Reply Keyboard (Division, Lightning, 24h, 7-day)...")
     rk = get_main_keyboard("bn")
     button_rows = [[btn.text if hasattr(btn, 'text') else str(btn) for btn in row] for row in rk.keyboard]
     print(f"  🔘 Main Keyboard layout: {button_rows}")
     assert len(button_rows) == 2, f"Expected 2 rows, got {len(button_rows)}"
-    assert button_rows[0] == ["🏢 বিভাগ"]
+    assert button_rows[0] == ["🏢 বিভাগ", "⚡ বজ্রপাত সতর্কতা"]
     assert button_rows[1] == ["📆 ২৪ ঘণ্টার পূর্বাভাস", "📅 ৭ দিনের পূর্বাভাস"]
-    print("  ✅ Reply Keyboard strictly matches user's request (only 3 buttons)!")
+    total_buttons = sum(len(r) for r in button_rows)
+    assert total_buttons == 4, f"Expected 4 buttons, got {total_buttons}"
+    print("  ✅ Reply Keyboard strictly matches user's request (exactly 4 buttons: Division, Lightning, 24h, 7-Day)!")
 
     print("\n========================================")
     print("🎉 ALL DIVISION DRILLDOWN TESTS PASSED! (100% SUCCESS)")

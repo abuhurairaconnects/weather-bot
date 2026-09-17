@@ -8,15 +8,15 @@ from utils.i18n import TERMINOLOGY_EXPLANATIONS
 from config import is_authorized, ACCESS_DENIED_MESSAGE_BN, ACCESS_DENIED_MESSAGE_EN
 
 def get_main_keyboard(lang: str = "bn") -> ReplyKeyboardMarkup:
-    """Return persistent reply keyboard with only Division, 24h, and 7-day forecast buttons."""
+    """Return persistent reply keyboard with 4 options: Division, Lightning Alert, 24h, and 7-day forecast."""
     if lang == "bn":
         keyboard = [
-            ["🏢 বিভাগ"],
+            ["🏢 বিভাগ", "⚡ বজ্রপাত সতর্কতা"],
             ["📆 ২৪ ঘণ্টার পূর্বাভাস", "📅 ৭ দিনের পূর্বাভাস"]
         ]
     else:
         keyboard = [
-            ["🏢 Divisions"],
+            ["🏢 Divisions", "⚡ Lightning Alert"],
             ["📆 24-Hour Forecast", "📅 7-Day Forecast"]
         ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -37,6 +37,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "আমি আপনাকে বাংলাদেশের যেকোনো বিভাগ, জেলা ও উপজেলার নিখুঁত রিয়েল-টাইম আবহাওয়া ও পূর্বাভাস জানাতে প্রস্তুত।\n\n"
             "📌 **ব্যবহারের নির্দেশিকা:**\n"
             "• **🏢 বিভাগ:** নিচের বাটনে চাপ দিয়ে বিভাগ ➡️ জেলা ➡️ উপজেলা সিলেক্ট করে আবহাওয়া দেখুন।\n"
+            "• **⚡ বজ্রপাত সতর্কতা:** আপনার এলাকায় বজ্রপাত ও তীব্র ঝড়ের আগাম সতর্কতা ও জীবনরক্ষাকারী নির্দেশনা দেখুন।\n"
             "• **সরাসরি অনুসন্ধান:** যেকোনো জেলা বা উপজেলার নাম লিখুন (যেমন: `বরুড়া`, `কুষ্টিয়া`, `মিরপুর`, `তাড়াশ`)।\n"
             "• **পূর্বাভাস:** নিচের কীবোর্ড থেকে **২৪ ঘণ্টার পূর্বাভাস** ও **৭ দিনের পূর্বাভাস** দেখুন।\n\n"
             "💡 সব কমান্ড দেখতে /help চাপুন।"
@@ -74,11 +75,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🌦️ **প্রধান ফিচারসমূহ:**\n"
             "• `/division` — ৮টি বিভাগ, জেলা ও উপজেলা অনুযায়ী আবহাওয়া নির্বাচন\n"
+            "• `/lightning` — বজ্রপাত, শিলাবৃষ্টি ও তীব্র ঝড়ের সতর্কতা\n"
             "• `/weather [স্থান]` — যেকোনো জেলা বা উপজেলার রিয়েল-টাইম আবহাওয়া\n"
             "• `/hourly [স্থান]` — পরবর্তী ২৪ ঘণ্টার প্রতি ঘণ্টার তথ্য\n"
-            "• `/forecast [স্থান]` — আগামী ৭ দিনের পূর্বাভাস\n\n"
+            "• `/forecast [স্থান]` — আগামী ৭ দিনের পূর্বাভাস\n"
+            "• `/subscribe [স্থান]` — সকাল ৭টা ও সন্ধ্যা ৭টায় স্বয়ংক্রিয় বুলেটিন সাবস্ক্রাইব\n\n"
             "📍 **নেভিগেশন:**\n"
             "• নিচের **🏢 বিভাগ** বাটনে চাপ দিয়ে ক্রমান্বয়ে বিভাগ ➡️ জেলা ➡️ উপজেলা সিলেক্ট করুন।\n"
+            "• **⚡ বজ্রপাত সতর্কতা** বাটনে চাপ দিয়ে ঝড়ের আগাম সতর্কতা জানুন।\n"
             "• অথবা সরাসরি যেকোনো জেলা/উপজেলার নাম লিখুন।"
         )
     else:
@@ -87,11 +91,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🌦️ **Core Weather Features:**\n"
             "• `/division` — Hierarchical Division ➡️ District ➡️ Upazila navigation\n"
+            "• `/lightning` — Lightning, hail & severe storm alert\n"
             "• `/weather [area]` — Current real-time weather\n"
             "• `/hourly [area]` — Next 24 hours hourly forecast\n"
-            "• `/forecast [area]` — Next 7 days extended forecast\n\n"
+            "• `/forecast [area]` — Next 7 days extended forecast\n"
+            "• `/subscribe [area]` — Subscribe to 7 AM & 7 PM daily briefs\n\n"
             "📍 **Quick Tips:**\n"
             "• Use the **🏢 Divisions** button below to browse by location.\n"
+            "• Use the **⚡ Lightning Alert** button for instant thunderstorm risk assessment.\n"
             "• Or simply send any district or upazila name directly."
         )
 

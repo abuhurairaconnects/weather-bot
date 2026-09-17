@@ -26,7 +26,13 @@ from telegram.ext import (
 from config import BOT_TOKEN
 from database.db import init_db
 from handlers.common import start_command, help_command, about_command
-from handlers.weather_handler import weather_command, random_command, location_handler, weather_callback_dispatcher
+from handlers.weather_handler import (
+    weather_command,
+    random_command,
+    location_handler,
+    weather_callback_dispatcher,
+    lightning_command
+)
 from handlers.forecast_handler import forecast_command, hourly_command, advice_command
 from handlers.division_handler import show_divisions_menu, division_callback_dispatcher
 from handlers.conversation import handle_text_message
@@ -92,6 +98,7 @@ async def post_init(application):
     commands = [
         BotCommand("start", "বট শুরু করুন / Start the bot"),
         BotCommand("division", "বিভাগ নির্বাচন / Browse by Division"),
+        BotCommand("lightning", "বজ্রপাত সতর্কতা / Lightning Alert"),
         BotCommand("hourly", "২৪ ঘণ্টার পূর্বাভাস / 24-hour forecast"),
         BotCommand("forecast", "৭ দিনের পূর্বাভাস / 7-day forecast"),
         BotCommand("weather", "রিয়েল-টাইম আবহাওয়া / Real-time weather"),
@@ -142,6 +149,8 @@ def main():
 
     # 2. Division & Weather Commands
     application.add_handler(CommandHandler("division", show_divisions_menu))
+    application.add_handler(CommandHandler("lightning", lightning_command))
+    application.add_handler(CommandHandler("storm", lightning_command))
     application.add_handler(CommandHandler("weather", weather_command))
     application.add_handler(CommandHandler("forecast", forecast_command))
     application.add_handler(CommandHandler("hourly", hourly_command))
