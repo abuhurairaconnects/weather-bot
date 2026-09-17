@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 from database.db import get_or_create_user, log_search
 from services.weather_api import search_city, get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_aqi_category
+from services.recommendations import generate_recommendations, format_recommendations_message
 
 def format_daily_forecast_message(weather_data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
     """Format 7-10 day daily forecast bulletin."""
@@ -85,7 +86,7 @@ def format_hourly_message(weather_data: dict, city_name: str, lang: str = "bn", 
             w_spd = winds[i]
             lines.append(f"• **{t_str}** ➡️ {emoji} **{temp}** | 🌧️ {r_prob}% বৃষ্টি | 💨 {w_spd:.0f} কিমি/ঘ")
         lines.append("\n──────────────────────")
-        lines.append("📊 চার্ট দেখতে /charts কমান্ড ব্যবহার করুন।")
+        lines.append("💡 *পরবর্তী ২৪ ঘণ্টার প্রতি ঘণ্টার তাপমাত্রা ও বৃষ্টির পূর্বাভাস।*")
     else:
         lines.append(f"📆 **24-Hour Forecast (Every 3h) — {city_name}**")
         lines.append("──────────────────────\n")
@@ -98,7 +99,7 @@ def format_hourly_message(weather_data: dict, city_name: str, lang: str = "bn", 
             w_spd = winds[i]
             lines.append(f"• **{t_str}** ➡️ {emoji} **{temp}** | 🌧️ {r_prob}% rain | 💨 {w_spd:.0f} km/h")
         lines.append("\n──────────────────────")
-        lines.append("📊 Use /charts to view graphical visualization.")
+        lines.append("💡 *Hourly temperature and rain probability for the next 24 hours.*")
 
     return "\n".join(lines)
 
@@ -293,4 +294,30 @@ async def rain_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"──────────────────────"
         )
 
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def advice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /advice [city] (smart lifestyle advice)."""
+    user = update.effective_user
+    db_user = await get_or_create_user(user.id, user.username, user.first_name)
+    lang = db_user.get("language", "bn")
+    unit = db_user.get("temp_unit", "C")
+
+    args = context.args
+    query = " ".join(args).strip() if args else (db_user.get("default_city") or "Dhaka")
+
+    cities = await search_city(query)
+    if not cities:
+        await update.message.reply_text(f"❌ '{query}' শহর পাওয়া যায়নি।" if lang == "bn" else f"❌ City '{query}' not found.")
+        return
+
+    city = cities[0]
+    await log_search(user.id, city["name"])
+    data = await get_weather_data(city["lat"], city["lon"], unit)
+    if not data:
+        await update.message.reply_text("⚠️ আবহাওয়ার ডেটা পাওয়া যায়নি।")
+        return
+
+    rec = generate_recommendations(data, lang)
+    msg = format_recommendations_message(rec, city["display_name"], lang)
     await update.message.reply_text(msg, parse_mode="Markdown")

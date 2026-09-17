@@ -4,54 +4,36 @@ Displays all 16+ basic weather metrics and links to smart sub-views.
 """
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from database.db import get_or_create_user, log_search, add_favorite
+from database.db import get_or_create_user, log_search
 from services.weather_api import search_city, get_weather_data, format_temp
 from utils.i18n import get_wmo_description, get_wind_direction, get_aqi_category, get_uv_category
 from services.recommendations import generate_recommendations, format_recommendations_message
-from services.agriculture import get_agriculture_advice
-from services.charts import generate_weather_chart
 
 def build_weather_buttons(lat: float, lon: float, city_name: str, lang: str = "bn") -> InlineKeyboardMarkup:
-    """Build inline keyboard for a specific location safely under 64 bytes."""
+    """Build inline keyboard with core options: 24h, 7-Day, Smart Advice, Refresh."""
     c_clean = city_name.split(",")[0].strip()
     # Ensure byte length never exceeds Telegram's 64-byte callback_data limit
     c_short = c_clean.encode("utf-8")[:18].decode("utf-8", errors="ignore")
     if lang == "bn":
         keyboard = [
             [
-                InlineKeyboardButton("🔄 রিফ্রেশ", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("📊 গ্রাফ চার্ট", callback_data=f"crt:{lat:.4f}:{lon:.4f}:{c_short}")
-            ],
-            [
                 InlineKeyboardButton("📆 ২৪ ঘণ্টা", callback_data=f"hr:{lat:.4f}:{lon:.4f}:{c_short}"),
                 InlineKeyboardButton("📅 ৭ দিন", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{c_short}")
             ],
             [
-                InlineKeyboardButton("🌫️ এয়ার কোয়ালিটি", callback_data=f"aqi:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("🧠 স্মার্ট পরামর্শ", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}")
-            ],
-            [
-                InlineKeyboardButton("🌾 কৃষি মোড", callback_data=f"agr:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("⭐ ফেভারিট সেভ", callback_data=f"fav:{lat:.4f}:{lon:.4f}:{c_short}")
+                InlineKeyboardButton("🧠 স্মার্ট পরামর্শ", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("🔄 রিফ্রেশ", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}")
             ]
         ]
     else:
         keyboard = [
             [
-                InlineKeyboardButton("🔄 Refresh", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("📊 Chart", callback_data=f"crt:{lat:.4f}:{lon:.4f}:{c_short}")
-            ],
-            [
                 InlineKeyboardButton("📆 24h Hourly", callback_data=f"hr:{lat:.4f}:{lon:.4f}:{c_short}"),
                 InlineKeyboardButton("📅 7-Day", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{c_short}")
             ],
             [
-                InlineKeyboardButton("🌫️ Air Quality", callback_data=f"aqi:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("🧠 Smart Advice", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}")
-            ],
-            [
-                InlineKeyboardButton("🌾 Agriculture", callback_data=f"agr:{lat:.4f}:{lon:.4f}:{c_short}"),
-                InlineKeyboardButton("⭐ Save Favorite", callback_data=f"fav:{lat:.4f}:{lon:.4f}:{c_short}")
+                InlineKeyboardButton("🧠 Smart Advice", callback_data=f"adv:{lat:.4f}:{lon:.4f}:{c_short}"),
+                InlineKeyboardButton("🔄 Refresh", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{c_short}")
             ]
         ]
     return InlineKeyboardMarkup(keyboard)
@@ -115,7 +97,7 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
             f"• ইউভি সূচক: {uv:.1f} ({uv_cat} {uv_emoji})\n"
             f"• সূর্যোদয়: {sunrise} | সূর্যাস্ত: {sunset}\n"
             f"• চন্দ্রকলা: {moon_emoji} {moon_name} ({moon_illum})\n\n"
-            f"💡 *নিচের বাটনগুলো চেপে ঘণ্টাওয়ারী, ৭ দিনের পূর্বাভাস বা গ্রাফ দেখুন।* "
+            f"💡 *নিচের বাটনগুলো চেপে ২৪ ঘণ্টা, ৭ দিনের পূর্বাভাস বা স্মার্ট পরামর্শ দেখুন।*"
         )
     else:
         return (
@@ -140,7 +122,7 @@ def format_current_weather_card(data: dict, city_name: str, lang: str = "bn", un
             f"• Sunrise: {sunrise} | Sunset: {sunset}\n"
             f"• Moon Phase: {moon_emoji} {moon_name} ({moon_illum})\n\n"
             f"──────────────────────\n"
-            f"💡 *Use the buttons below to explore charts and advice:*"
+            f"💡 *Use the buttons below to explore 24h, 7-day forecasts, or smart advice:*"
         )
 
 async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -197,7 +179,7 @@ async def location_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(card, parse_mode="Markdown", reply_markup=markup)
 
 async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle callbacks from weather inline buttons."""
+    """Handle callbacks from weather inline buttons (ref, adv, hr, fc)."""
     query = update.callback_query
     await query.answer()
 
@@ -227,20 +209,10 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
         except Exception:
             pass  # Message is identical
 
-    elif action == "crt":
-        chart_buf = generate_weather_chart(weather_data, city_name, lang)
-        if chart_buf:
-            caption = f"📊 **{city_name}** এর পরবর্তী ২৪ ঘণ্টার আবহাওয়া চিত্র" if lang == "bn" else f"📊 24-hour weather visual analytics for **{city_name}**"
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart_buf, caption=caption, parse_mode="Markdown")
-
     elif action == "adv":
         rec = generate_recommendations(weather_data, lang)
         msg = format_recommendations_message(rec, city_name, lang)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
-
-    elif action == "agr":
-        agri_msg = get_agriculture_advice(weather_data, city_name, lang)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=agri_msg, parse_mode="Markdown")
 
     elif action == "hr":
         from handlers.forecast_handler import format_hourly_message
@@ -251,13 +223,3 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
         from handlers.forecast_handler import format_daily_forecast_message
         msg = format_daily_forecast_message(weather_data, city_name, lang, unit)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
-
-    elif action == "aqi":
-        from handlers.forecast_handler import format_air_quality_message
-        msg = format_air_quality_message(weather_data, city_name, lang)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
-
-    elif action == "fav":
-        await add_favorite(user.id, "custom", city_name, lat, lon)
-        fav_confirm = f"⭐ **{city_name}** সফলভাবে আপনার ফেভারিট তালিকায় যুক্ত হয়েছে!" if lang == "bn" else f"⭐ **{city_name}** added to your favorites!"
-        await query.answer(fav_confirm, show_alert=True)

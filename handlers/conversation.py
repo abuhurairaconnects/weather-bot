@@ -9,12 +9,8 @@ from database.db import get_or_create_user
 from services.nlp_parser import classify_intent
 from services.weather_api import search_city, get_weather_data, format_temp
 from services.recommendations import generate_recommendations, format_recommendations_message
-from services.agriculture import get_agriculture_advice
-from services.charts import generate_weather_chart
-from services.travel import plan_travel
 from handlers.weather_handler import format_current_weather_card, build_weather_buttons
 from handlers.forecast_handler import format_hourly_message, format_daily_forecast_message, format_air_quality_message
-from handlers.user_handlers import settings_command
 from utils.i18n import TERMINOLOGY_EXPLANATIONS, get_wmo_description
 from services.gemini_service import ask_gemini
 
@@ -32,8 +28,8 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     default_city = db_user.get("default_city") or "Dhaka"
 
     # 1. Handle Main Keyboard Button Clicks
-    if text in ["🌦️ ঢাকা আবহাওয়া", "🌦️ Dhaka Weather"]:
-        cities = await search_city("Dhaka")
+    if text in ["🌦️ লাইভ আবহাওয়া", "🌦️ Live Weather", "🌦️ ঢাকা আবহাওয়া", "🌦️ Dhaka Weather"]:
+        cities = await search_city(default_city)
         if cities:
             c = cities[0]
             w = await get_weather_data(c["lat"], c["lon"], unit)
@@ -45,19 +41,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 )
         return
 
-    if text in ["📊 গ্রাফ চার্ট", "📊 Weather Chart"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                chart = generate_weather_chart(w, c["name"], lang)
-                if chart:
-                    caption = f"📊 **{c['display_name']}** এর ২৪ ঘণ্টার তাপমাত্রা ও বৃষ্টির চার্ট"
-                    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart, caption=caption, parse_mode="Markdown")
-        return
-
-    if text in ["📆 ২৪ ঘণ্টা পূর্বাভাস", "📆 24h Hourly Forecast"]:
+    if text in ["📆 ২৪ ঘণ্টা পূর্বাভাস", "📆 ২৪ ঘণ্টার পূর্বাভাস", "📆 24h Hourly Forecast", "📆 24h Forecast"]:
         cities = await search_city(default_city)
         if cities:
             c = cities[0]
@@ -85,28 +69,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await update.message.reply_text(format_recommendations_message(rec, c["display_name"], lang), parse_mode="Markdown")
         return
 
-    if text in ["🌾 কৃষি মোড", "🌾 Agriculture Mode"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                await update.message.reply_text(get_agriculture_advice(w, c["display_name"], lang), parse_mode="Markdown")
-        return
-
-    if text in ["🌫️ এয়ার কোয়ালিটি", "🌫️ Air Quality"]:
-        cities = await search_city(default_city)
-        if cities:
-            c = cities[0]
-            w = await get_weather_data(c["lat"], c["lon"], unit)
-            if w:
-                await update.message.reply_text(format_air_quality_message(w, c["display_name"], lang), parse_mode="Markdown")
-        return
-
-    if text in ["⚙️ সেটিংস ও অ্যালার্ট", "⚙️ Settings & Alerts"]:
-        await settings_command(update, context)
-        return
-
     # 2. Run NLP Intent Classification
     intent_data = classify_intent(text)
     intent = intent_data["intent"]
@@ -117,17 +79,6 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         term = intent_data.get("term", "humidity")
         explanation = TERMINOLOGY_EXPLANATIONS.get(term, {}).get(lang, "ব্যাখ্যা পাওয়া যায়নি।")
         await update.message.reply_text(explanation, parse_mode="Markdown")
-        return
-
-    # Travel Intent
-    if intent == "travel":
-        orig = intent_data.get("origin")
-        dest = intent_data.get("destination")
-        travel_res = await plan_travel(orig, dest, lang)
-        if travel_res:
-            await update.message.reply_text(travel_res, parse_mode="Markdown")
-        else:
-            await update.message.reply_text(f"❌ '{orig}' থেকে '{dest}' এর ভ্রমণ আবহাওয়া পাওয়া যায়নি।")
         return
 
     # Weather-specific intents: rain, umbrella, temp, outdoor, wind, aqi

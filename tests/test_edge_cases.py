@@ -21,7 +21,6 @@ from database.db import (
     get_favorites, log_search, get_admin_stats
 )
 from services.weather_api import search_city, get_weather_data
-from services.travel import plan_travel
 from services.charts import generate_weather_chart
 from services.nlp_parser import classify_intent
 from utils.moon import get_moon_phase
@@ -44,11 +43,11 @@ async def run_edge_case_tests():
     assert isinstance(special_search, list), "Special chars should return list safely"
     print("  ✅ Special characters handled safely.")
 
-    # 3. Invalid Travel Route
-    print("\n[3/6] Testing invalid travel route...")
-    travel_res = await plan_travel("FakeCityA123", "FakeCityB456", lang="bn")
-    assert travel_res is None, "Expected None for non-existent travel route"
-    print("  ✅ Invalid travel route handled gracefully.")
+    # 3. Invalid Area Lookup
+    print("\n[3/6] Testing invalid area query...")
+    bad_area_res = await search_city("ThisIsNotARealPlaceXYZ123")
+    assert bad_area_res == [], "Expected empty list for non-existent area"
+    print("  ✅ Invalid area handled gracefully.")
 
     # 4. Unusual NLP Inputs
     print("\n[4/6] Testing unusual conversational inputs...")
