@@ -31,14 +31,18 @@ if raw_admins:
         if clean_item.isdigit():
             ADMIN_IDS.add(int(clean_item))
 
-# Strict Admin-Only Access Mode (default: True)
-ONLY_ADMIN_ACCESS = os.getenv("ONLY_ADMIN_ACCESS", "true").lower() in ("true", "1", "yes")
+# Strict Admin-Only Access Mode (False: allow all public users to get weather info)
+ONLY_ADMIN_ACCESS = os.getenv("ONLY_ADMIN_ACCESS", "false").lower() in ("true", "1", "yes")
+
+def is_admin(user_id: int) -> bool:
+    """Check if the given user is the primary developer / administrator."""
+    return bool(user_id and user_id in ADMIN_IDS)
 
 def is_authorized(user_id: int) -> bool:
-    """Check if the given user is an authorized admin."""
-    if not ONLY_ADMIN_ACCESS:
-        return True
-    return bool(user_id and user_id in ADMIN_IDS)
+    """Check if user can access weather features. Public access enabled so everyone can use it."""
+    if ONLY_ADMIN_ACCESS:
+        return is_admin(user_id)
+    return True
 
 ACCESS_DENIED_MESSAGE_BN = (
     "⛔ **অ্যাক্সেস সীমাবদ্ধ (Access Denied)**\n\n"
