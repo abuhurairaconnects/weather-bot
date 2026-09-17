@@ -1,0 +1,25 @@
+name: 24/7 Keep Render Alive
+
+on:
+  schedule:
+    # Trigger every 10 minutes
+    - cron: '*/10 * * * *'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Keep-Alive Server
+        run: |
+          echo "Sending ping 1 to Render..."
+          curl -s -f -m 30 https://telegram-weather-bot-rwwg.onrender.com || true
+          
+          echo "Waiting 4 minutes..."
+          sleep 240
+          
+          echo "Sending ping 2 to Render..."
+          curl -s -f -m 30 https://telegram-weather-bot-rwwg.onrender.com || true
