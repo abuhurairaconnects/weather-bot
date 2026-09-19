@@ -162,6 +162,19 @@ async def search_city(query: str) -> List[Dict[str, Any]]:
 
     return []
 
+# In-memory weather data cache: key: f"{lat:.4f}:{lon:.4f}" -> (timestamp, data_dict)
+_WEATHER_DATA_CACHE: Dict[str, Any] = {}
+CACHE_TTL_SECONDS = 300  # 5 minutes
+
+def invalidate_weather_cache(lat: Optional[float] = None, lon: Optional[float] = None) -> None:
+    """Invalidate cached weather data for a specific coordinate or entirely."""
+    global _WEATHER_DATA_CACHE
+    if lat is not None and lon is not None:
+        key = f"{lat:.4f}:{lon:.4f}"
+        _WEATHER_DATA_CACHE.pop(key, None)
+    else:
+        _WEATHER_DATA_CACHE.clear()
+
 async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Optional[Dict[str, Any]]:
     """
     Fetch comprehensive weather data including:
@@ -171,6 +184,14 @@ async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Opti
     - Air Quality
     - Moon Phase
     """
+    cache_key = f"{lat:.4f}:{lon:.4f}"
+    now = datetime.now()
+    if cache_key in _WEATHER_DATA_CACHE:
+        cached_time, cached_data = _WEATHER_DATA_CACHE[cache_key]
+        if (now - cached_time).total_seconds() < CACHE_TTL_SECONDS:
+            cached_data["temp_unit"] = temp_unit
+            return cached_data
+
     weather_params = {
         "latitude": lat,
         "longitude": lon,
@@ -276,7 +297,7 @@ async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Opti
     so2 = aqi_cur.get("sulphur_dioxide") or 0.0
     o3 = aqi_cur.get("ozone") or 0.0
 
-    return {
+    result = {
         "lat": lat,
         "lon": lon,
         "timezone": w_data.get("timezone", "UTC"),
@@ -315,3 +336,5 @@ async def get_weather_data(lat: float, lon: float, temp_unit: str = "C") -> Opti
         "hourly": hourly,
         "daily": daily
     }
+    _WEATHER_DATA_CACHE[cache_key] = (now, result)
+    return result

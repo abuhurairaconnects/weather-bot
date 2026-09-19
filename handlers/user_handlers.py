@@ -12,7 +12,7 @@ from database.db import (
 from services.weather_api import search_city
 from services.bd_geocoder import find_bd_location
 from handlers.common import get_main_keyboard
-from config import is_admin
+from config import is_admin, is_authorized, ACCESS_DENIED_MESSAGE_BN
 
 def build_settings_keyboard(lang: str, unit: str) -> InlineKeyboardMarkup:
     """Build settings interactive keyboard."""
@@ -56,6 +56,10 @@ def build_alerts_keyboard(alerts: dict, lang: str = "bn") -> InlineKeyboardMarku
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /settings."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
     unit = db_user.get("temp_unit", "C")
@@ -79,6 +83,10 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /alerts."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
     alerts = await get_alert_settings(user.id)
@@ -104,6 +112,10 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def location_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /location [city] to set default city."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
 
@@ -135,6 +147,10 @@ async def location_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def favorites_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /favorites to view and manage saved cities."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id)
     lang = db_user.get("language", "bn")
 
@@ -165,9 +181,13 @@ async def favorites_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def user_preferences_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback queries for settings, alerts, and favorites."""
     query = update.callback_query
+    user = update.effective_user
+    if not is_authorized(user.id):
+        await query.answer("⛔ অ্যাক্সেস সীমাবদ্ধ! আপনি এই বটের অনুমোদিত অ্যাডমিন নন।", show_alert=True)
+        return
+
     await query.answer()
     data = query.data
-    user = update.effective_user
 
     # Settings toggle
     if data.startswith("cfg:"):
@@ -235,6 +255,10 @@ async def user_preferences_callback(update: Update, context: ContextTypes.DEFAUL
 async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /subscribe [location] to subscribe to 07:00 AM & 07:00 PM daily reports and severe alerts."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     
     args = context.args
@@ -312,6 +336,10 @@ async def subscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /unsubscribe to stop automatic daily reports and alerts."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     await update_alert_settings(
         user.id,
         morning_report=0,
@@ -329,6 +357,10 @@ async def unsubscribe_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def testdaily_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Test send morning or evening report immediately (for testing)."""
     user = update.effective_user
+    if not is_authorized(user.id):
+        await update.message.reply_text(ACCESS_DENIED_MESSAGE_BN, parse_mode="Markdown")
+        return
+
     from jobs.scheduler import send_single_user_report
     report_type = "morning"
     if context.args and context.args[0].lower() in ["evening", "eve", "night", "সন্ধ্যা"]:

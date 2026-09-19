@@ -75,15 +75,19 @@ async def run_tests():
         aqi = data["current"]["aqi"]["us_aqi"]
         print(f"  ✅ {c['name']:14} | Temp: {temp}°C | Humidity: {humidity}% | Rain: {rain_prob}% | AQI: {aqi}")
 
-        # Test Card Formatting & Signature Greeting
+        # Test Card Formatting & Smart Signature Greeting
+        from handlers.conversation import get_smart_signature_greeting
+        greeting = get_smart_signature_greeting(100000 + hash(up), "bn")
+        assert SIGNATURE_GREETING in greeting
         card = format_current_weather_card(data, c["display_name"], "bn", "C")
-        assert SIGNATURE_GREETING in card, f"Greeting missing in card for {up}"
+        assert "তাপমাত্রা" in card
         
         # Test Buttons
         buttons = build_weather_buttons(c["lat"], c["lon"], c["name"], "bn")
         btn_texts = [b.text for row in buttons.inline_keyboard for b in row]
         assert "📆 ২৪ ঘণ্টা" in btn_texts
         assert "📅 ৭ দিন" in btn_texts
+        assert "⚡ বজ্রপাত সতর্কতা" in btn_texts
         assert "🧠 স্মার্ট পরামর্শ" in btn_texts
         assert "🔄 রিফ্রেশ" in btn_texts
 
@@ -95,22 +99,19 @@ async def run_tests():
     
     # Hourly
     hourly_msg = format_hourly_message(sample_data, sample_c["display_name"], "bn", "C")
-    assert SIGNATURE_GREETING in hourly_msg
     assert "২৪ ঘণ্টার প্রতি ঘণ্টার পূর্বাভাস" in hourly_msg
-    print("  ✅ Hourly forecast format and greeting verified!")
+    print("  ✅ Hourly forecast format verified!")
 
     # Daily
     daily_msg = format_daily_forecast_message(sample_data, sample_c["display_name"], "bn", "C")
-    assert SIGNATURE_GREETING in daily_msg
     assert "৭ দিনের আবহাওয়ার পূর্বাভাস" in daily_msg
-    print("  ✅ 7-Day forecast format and greeting verified!")
+    print("  ✅ 7-Day forecast format verified!")
 
     # Advice
     rec = generate_recommendations(sample_data, "bn")
     advice_msg = format_recommendations_message(rec, sample_c["display_name"], "bn")
-    assert SIGNATURE_GREETING in advice_msg
     assert "স্মার্ট আবহাওয়া পরামর্শ" in advice_msg
-    print("  ✅ Smart advice format and greeting verified!")
+    print("  ✅ Smart advice format verified!")
 
     # 4. Test Random Upazila Picker
     upazilas = [l for l in _BD_LOCATIONS if l.get("type") == "upazila"]

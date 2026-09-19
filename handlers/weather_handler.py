@@ -321,19 +321,22 @@ async def weather_callback_dispatcher(update: Update, context: ContextTypes.DEFA
     if action == "adv":
         rec = generate_recommendations(weather_data, lang)
         msg = format_recommendations_message(rec, display_name, lang)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown")
+        back_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 আবহাওয়া কার্ডে ফিরুন" if lang == "bn" else "🔙 Back to Weather", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}")]
+        ])
+        await safe_edit_callback_message(query, msg, back_markup)
 
     elif action == "hr":
         from handlers.forecast_handler import format_hourly_message
         msg = format_hourly_message(weather_data, display_name, lang, unit)
         markup = build_upazila_hourly_buttons(lat, lon, city_name, district_en, lang)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, msg, markup)
 
     elif action == "fc":
         from handlers.forecast_handler import format_daily_forecast_message
         msg = format_daily_forecast_message(weather_data, display_name, lang, unit)
         markup = build_upazila_daily_buttons(lat, lon, city_name, district_en, lang)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode="Markdown", reply_markup=markup)
+        await safe_edit_callback_message(query, msg, markup)
 
 def format_lightning_alert_card(data: dict, city_name: str, lang: str = "bn", unit: str = "C") -> str:
     """Produce comprehensive lightning & thunderstorm status and safety report."""

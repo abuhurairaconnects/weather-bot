@@ -233,9 +233,12 @@ def build_upazila_lightning_buttons(lat: float, lon: float, city_name: str, dist
     ]
     row2 = [
         InlineKeyboardButton("📆 ২৪ ঘণ্টা" if lang == "bn" else "📆 24h", callback_data=f"hr:{lat:.4f}:{lon:.4f}:{city_name}"),
+        InlineKeyboardButton("📅 ৭ দিন" if lang == "bn" else "📅 7 Days", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{city_name}")
+    ]
+    row3 = [
         InlineKeyboardButton("🌦️ পূর্ণ আবহাওয়া" if lang == "bn" else "🌦️ Weather Card", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}")
     ]
-    return InlineKeyboardMarkup([row1, row2])
+    return InlineKeyboardMarkup([row1, row2, row3])
 
 async def show_lightning_divisions_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: Displays 8 divisions for lightning alert drilldown."""
@@ -348,7 +351,10 @@ def build_upazila_hourly_buttons(lat: float, lon: float, city_name: str, distric
         InlineKeyboardButton("📅 ৭ দিনের পূর্বাভাস" if lang == "bn" else "📅 7-Day Forecast", callback_data=f"fc:{lat:.4f}:{lon:.4f}:{city_name}"),
         InlineKeyboardButton("⚡ বজ্রপাত সতর্কতা" if lang == "bn" else "⚡ Lightning Alert", callback_data=f"lref:{lat:.4f}:{lon:.4f}:{city_name}")
     ]
-    return InlineKeyboardMarkup([row1, row2])
+    row3 = [
+        InlineKeyboardButton("🌦️ পূর্ণ আবহাওয়া" if lang == "bn" else "🌦️ Weather Card", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}")
+    ]
+    return InlineKeyboardMarkup([row1, row2, row3])
 
 async def show_hourly_divisions_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: Displays 8 divisions for 24-hour forecast drilldown."""
@@ -461,7 +467,10 @@ def build_upazila_daily_buttons(lat: float, lon: float, city_name: str, district
         InlineKeyboardButton("📆 ২৪ ঘণ্টার পূর্বাভাস" if lang == "bn" else "📆 24h Forecast", callback_data=f"hr:{lat:.4f}:{lon:.4f}:{city_name}"),
         InlineKeyboardButton("⚡ বজ্রপাত সতর্কতা" if lang == "bn" else "⚡ Lightning Alert", callback_data=f"lref:{lat:.4f}:{lon:.4f}:{city_name}")
     ]
-    return InlineKeyboardMarkup([row1, row2])
+    row3 = [
+        InlineKeyboardButton("🌦️ পূর্ণ আবহাওয়া" if lang == "bn" else "🌦️ Weather Card", callback_data=f"ref:{lat:.4f}:{lon:.4f}:{city_name}")
+    ]
+    return InlineKeyboardMarkup([row1, row2, row3])
 
 async def show_daily_divisions_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: Displays 8 divisions for 7-day forecast drilldown."""
@@ -681,7 +690,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
         parts = data.split(":")
         lat = float(parts[1])
         lon = float(parts[2])
-        city_name = parts[3]
+        city_name = ":".join(parts[3:])
 
         user = update.effective_user
         db_user = await get_or_create_user(user.id)
@@ -799,7 +808,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
         parts = data.split(":")
         lat = float(parts[1])
         lon = float(parts[2])
-        city_name = parts[3]
+        city_name = ":".join(parts[3:])
 
         user = update.effective_user
         db_user = await get_or_create_user(user.id)
@@ -917,7 +926,7 @@ async def division_callback_dispatcher(update: Update, context: ContextTypes.DEF
         parts = data.split(":")
         lat = float(parts[1])
         lon = float(parts[2])
-        city_name = parts[3]
+        city_name = ":".join(parts[3:])
 
         user = update.effective_user
         db_user = await get_or_create_user(user.id)
